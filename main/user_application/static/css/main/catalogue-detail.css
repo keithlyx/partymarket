@@ -1,0 +1,9 @@
+.main-wrapper {
+  padding-top: 1rem;
+}
+
+.nav-item a,
+.navbar-brand {
+  /* color: #000 !important; */
+  color: black !important;
+}

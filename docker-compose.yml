@@ -1,0 +1,241 @@
+version: "3.8"
+
+networks:
+  my-networks:
+
+volumes:
+  rabbitmq_data:
+
+services:
+
+  ###############################################
+  ####################################
+  # RabbitMQ: The messaging broker   
+  ####################################
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    container_name: rabbitmq
+    restart: always
+    networks:
+      - my-networks
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes: 
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  #################################
+  # Venue: Venue microservice
+  #################################
+  venue:
+    build:
+      context: ./microservices/simple/venue
+      dockerfile: Dockerfile
+    container_name: venue
+    networks:
+      - my-networks
+    ports:
+      - "5003:5003"
+    restart: always
+
+
+  ###############################################
+  # Catalogue: Catalogue microservice
+  ###############################################
+  catalogue:
+    build:
+      context: ./microservices/simple/catalogue
+      dockerfile: Dockerfile
+    container_name: catalogue
+    networks:
+      - my-networks
+    ports:
+      - "5004:5004"
+    restart: always
+
+
+  ###############################################
+  # Review: Review microservice
+  ###############################################
+  review:
+    build:
+      context: ./microservices/simple/review
+      dockerfile: Dockerfile
+    container_name: review
+    networks:
+      - my-networks
+    ports:
+      - "5007:5007"
+    restart: always
+
+
+  ###############################################
+  # Payment: Payment microservice
+  ###############################################
+  payment:
+    build:
+      context: ./microservices/simple/payment
+      dockerfile: Dockerfile
+    container_name: payment
+    environment:
+      STRIPE_PUBLIC_KEY: "${STRIPE_PUBLIC_KEY}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
+      FLASK_SECRET_KEY: "${FLASK_SECRET_KEY}"
+    networks:
+      - my-networks
+    ports:
+      - "5008:5008"
+    restart: always
+
+
+  ###############################################
+  # Order: Order microservice
+  ###############################################
+  order:
+    build:
+      context: ./microservices/simple/order
+      dockerfile: Dockerfile
+    container_name: order
+    networks:
+      - my-networks
+    ports:
+      - "5006:5006"
+    restart: always
+
+
+  ###############################################
+  # Cart: Cart microservice
+  ###############################################
+  cart:
+    build:
+      context: ./microservices/simple/cart
+      dockerfile: Dockerfile
+    container_name: cart
+    networks:
+      - my-networks
+    ports:
+      - "5005:5005"
+    restart: always
+
+
+  ###############################################
+  # Email: Email microservice
+  ###############################################
+  notification:
+    build:
+      context: ./microservices/simple/emailNode
+      dockerfile: Dockerfile
+    container_name: notification
+    networks:
+      - my-networks
+    ports:
+      - "5010:5010"
+    restart: always
+    depends_on:
+     - rabbitmq
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      SENDGRID_API_KEY: "${SENDGRID_API_KEY}"
+
+
+  ###############################################
+  # Process_Order: Process_Order microservice
+  ###############################################
+  process_order:
+    build:
+      context: ./microservices/complex/process_order
+      dockerfile: Dockerfile
+    container_name: process_order
+    networks:
+      - my-networks
+    ports:
+      - "5200:5200"
+    restart: always
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+      PYTHONUNBUFFERED: 1
+
+    depends_on:
+      - venue
+      - catalogue
+      - cart
+      - order
+      - payment
+      - review
+      - notification
+      - rabbitmq
+  
+  ###############################################
+  # Process_Review: Process_Review microservice
+  ###############################################
+  process_review:
+    build:
+      context: ./microservices/complex/process_review
+      dockerfile: Dockerfile
+    container_name: process_review
+    networks:
+      - my-networks
+    environment:
+      rabbit_host: rabbitmq
+      rabbit_port: 5672
+    ports:
+      - "5400:5400"
+    restart: always
+    depends_on:
+      - venue
+      - catalogue
+      - cart
+      - order
+      - payment
+      - review
+      - notification
+      - rabbitmq
+
+  ###############################################
+  # View_Order: View_Order microservice
+  ###############################################
+  view_order:
+    build:
+      context: ./microservices/complex/view_order
+      dockerfile: Dockerfile
+    container_name: view_order
+    networks:
+      - my-networks
+    ports:
+      - "5300:5300"
+    restart: always
+    depends_on:
+      - venue
+      - catalogue
+      - cart
+      - order
+      - payment
+      - review
+      - notification
+
+  ###############################################
+  # Process_Refund: Process_Refund microservice
+  ###############################################
+  
+  process_refund:
+    build:
+      context: ./microservices/complex/process_refund
+      dockerfile: Dockerfile
+    container_name: process_refund
+    networks:
+      - my-networks
+    ports:
+      - "5700:5700"
+    restart: always
+    depends_on:
+      - venue
+      - catalogue
+      - cart
+      - order
+      - payment
+      - review
+      - notification
+      - rabbitmq

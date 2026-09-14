@@ -1,0 +1,50 @@
+{% extends "base.html" %} {% block content %}
+<link rel="stylesheet" type="text/css" href="/static/css/main/login.css" />
+
+<div class="contact" style="margin-top: 7rem">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-6">
+        <img class="img-fluid" src="/static/img/delivery.png" />
+      </div>
+      <div class="col-md-6" style="margin-top: 5rem">
+        <h1 class="text-center" style="font-weight: 200">Welcome back</h1>
+        <hr />
+        <form class="needs-validation" method="POST" action="">
+          {{ form.hidden_tag() }} {{ form.username.label(class="form-control-label mt-1") }} {% if form.username.errors
+          %} {{ form.username(class="form-control is-invalid") }}
+          <div class="invalid-feedback">
+            {% for error in form.username.errors %}
+            <span>{{ error }}</span>
+            {% endfor %}
+          </div>
+          {% else %} {{ form.username(class="form-control") }} {% endif %} {{
+          form.password.label(class="form-control-label mt-3") }} {% if form.password.errors %} {{
+          form.password(class="form-control is-invalid") }}
+          <div class="invalid-feedback">
+            {% for error in form.password.errors %}
+            <span>{{ error }}</span>
+            {% endfor %}
+          </div>
+          {% else %} {{ form.password(class="form-control") }} {% endif %}
+
+          <div class="form-group form-check mt-3">
+            <input type="checkbox" class="form-check-input" id="exampleCheck1" />
+            <label class="form-check-label" for="exampleCheck1">Keep me logged in</label>
+          </div>
+
+          {{ form.submit(class="btn btn-block my-3 btn-dark btn-lg") }}
+
+          <div class="text-center">
+            <small>Dont't have an account? <a href="{{ url_for('register') }}">Sign Up</a></small>
+            <br />
+            <a href="">
+              <small>Forgot password?</small>
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

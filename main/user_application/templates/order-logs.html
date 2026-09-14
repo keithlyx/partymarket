@@ -1,0 +1,105 @@
+{% extends "base.html" %} {% block content %}
+<link rel="stylesheet" type="text/css" href="/static/css/main/order-logs.css" />
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<main>
+  <div class="main-wrapper">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-12">
+          <div class="card-wrapper">
+            <div class="title display-6 fw-normal">My Orders</div>
+
+            <table class="table mt-3">
+              <thead>
+                <tr style="border-top: 1px solid #ddd">
+                  <td scope="col">Order</td>
+                  <td scope="col" class="tb-col-name">Date</td>
+                  <td scope="col" class="tb-col-name">Status</td>
+                  <td scope="col" class="tb-col-name">Total</td>
+                  <td scope="col" class="tb-col-name">Action</td>
+                  <td scope="col" class="tb-col-name">Detail</td>
+                </tr>
+              </thead>
+              <tbody>
+                {% for key, values in order_details.items() %}
+                <tr class="p-2">
+                  <td scope="row">
+                    <img
+                      src="https://cdn-icons-png.flaticon.com/512/2832/2832495.png"
+                      alt=""
+                      class="img-fluid me-1"
+                      width="30"
+                      style="border: 1px solid #ddd; border-radius: 5px; padding: 3px"
+                    />
+                    #{{key}}
+                  </td>
+                  <td>{{values["order_datetime"]}}</td>
+                  <td>
+                    <span class="badge rounded-pill text-bg-success fw-normal">{{values["order_status"]}}</span>
+                  </td>
+                  <td class="total-amount" data-total-amount="{{ values['total_amount'] }}">
+                    ${{values["total_amount"]}}
+                  </td>
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+                  <td>
+                    <!-- check the order status to disable it -->
+                    {% if values['order_status']!= "Delivered" %}
+                    {% if values['order_status'] != 'Refunded' %}
+                    <button
+                      class="btn-refund btn btn-outline-danger"
+                      id="{{values['order_id']}}"
+                      data-totalamount="{{values['total_amount']}}"
+                      onClick="reply_click(this)"
+                    >
+                      Cancel
+                    </button>
+                    {% else %}
+                    <button class="btn-refund btn btn-outline-danger" disabled>
+                      Cancelled
+                    </button>
+                    {% endif %}
+                    {% endif%}
+                  </td>
+                  <td>
+                    <a href="{{url_for('order_details', order_id=values['order_id'])}}">
+                      <img src="https://cdn-icons-png.flaticon.com/512/512/512142.png" alt="" width="30" class="" />
+                    </a>
+                  </td>
+                  {% endfor %}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  function reply_click(clicked_btn) {
+    chargeId = clicked_btn.id;
+    var totalAmountElement = clicked_btn.getAttribute("data-totalamount");
+    console.log("Charge ID: " + chargeId);
+    console.log("Total Amount: " + totalAmountElement);
+
+    var refundBtn = document.getElementById(chargeId);
+    console.log("Refund Button: " + refundBtn);
+
+    refundBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      try {
+        const response = await axios.post("http://localhost:5700/api/v1/refund", {
+          chargeId,
+          totalAmountElement,
+        });
+      } catch (error) {
+        console.log(error);
+      }
+    });
+  }
+</script>
+
+{% endblock %}

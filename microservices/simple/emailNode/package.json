@@ -1,0 +1,11 @@
+{
+  "name": "party_notification",
+  "version": "1.0.0",
+  "description": "party_notification",
+  "main": "notification.js",
+  "dependencies": {
+    "@sendgrid/mail": "7.7.0",
+    "amqplib": "0.10.3",
+    "json": "11.0.0"
+  }
+}

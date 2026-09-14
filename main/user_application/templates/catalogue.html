@@ -1,0 +1,59 @@
+{% extends "base.html" %} {% block content %}
+<link rel="stylesheet" type="text/css" href="/static/css/main/catalogue.css" />
+<main>
+  <div class="main-wrapper">
+    <div id="fullpage">
+      <div class="section catalogue">
+        <div class="container">
+          <h1>Step 1: Choose a Catalogue Item</h1>
+          <div class="my-slider-catalogue">
+            {% for data in catalogue_data['data']['items'] %}
+            <div class="slide-item">
+              <div class="card" style="width: 18rem">
+                <img src="{{data.item_img}}" class="card-img-top" alt="..." />
+                <div class="card-body">
+                  <h5 class="card-title">{{ data.item_name }}</h5>
+                  <p class="card-text">{{ data.item_description }}</p>
+                  <a href="{{ url_for('catalogue_detail',catalogue_id=data.item_id) }}" class="btn btn-dark"
+                    >View More</a
+                  >
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="section venue">
+        <div class="container">
+          <h1>Step 2: Choose a Venue</h1>
+          <div class="my-slider-venues">
+            {% for data in venue_data['data']['venues'] %}
+            <div class="slide-item">
+              <div class="card" style="width: 18rem">
+                <img src="{{data.venue_img}}}}" class="card-img-top" alt="..." />
+                <div class="card-body">
+                  <h5 class="card-title">{{ data.venue_name }}</h5>
+                  <p class="card-text">{{ data.venue_description }}</p>
+                  <a href="{{ url_for('venue_detail',venue_id=data.venue_id) }}" class="btn btn-dark">View More</a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="section checkout">
+        <a href="{{url_for('cart')}}" style="text-decoration: none">
+          <h1>
+            Step 3: View Cart
+            <span>
+              <img src="https://cdn-icons-png.flaticon.com/512/271/271226.png" alt="" width="50" class="mb-2" />
+            </span>
+          </h1>
+        </a>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

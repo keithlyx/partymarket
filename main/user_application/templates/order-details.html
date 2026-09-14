@@ -1,0 +1,360 @@
+{% extends "base.html" %} {% block content %}
+<link rel="stylesheet" type="text/css" href="/static/css/main/cart.css" />
+
+<main>
+  <div class="main-wrapper">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8">
+          <div class="card-wrapper">
+            <div class="title display-6 fw-normal text-dark">Order ID: #{{order_id}}</div>
+
+            <table class="table mt-3">
+              <!-- <div class="empty-cart-wrapper">
+                <p>Cart is empty</p>
+                <a href="{{ url_for('home')}}">Go to products page</a>
+              </div> -->
+              <!-- cart is not empty -->
+              <thead>
+                <tr style="border-top: 1px solid #ddd">
+                  <td scope="col" class="tb-col-name"></td>
+                  <td scope="col" class="tb-col-name">Item</td>
+                  <td scope="col" class="tb-col-name">Quantity</td>
+                  <td scope="col" class="tb-col-name">Price</td>
+                  <td scope="col" class="tb-col-name">Subtotal</td>
+                  <td scope="col" class="tb-col-name">Review</td>
+                </tr>
+              </thead>
+              <tbody>
+                {% for data in order_data[order_id]['order_items']%}
+                <tr class="p-2">
+                  <td>
+                    <img src="{{data.item_img}}" width="50" alt="" />
+                  </td>
+                  <td>{{data.item_name}}</td>
+                  <td>
+                    <div class="buttons">
+                      <div class="d-flex align-items-center">{{data.item_quantity}}</div>
+                    </div>
+                  </td>
+                  <td>${{data.item_price}}</td>
+                  <td>${{data.item_price * data.item_quantity}}</td>
+                  {% if order_data[order_id]["order_status"]=="Delivered" %} {% if data["isReviewed"] == "" %}
+                  <td>
+                    <!-- Button trigger modal -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-dark"
+                      data-bs-toggle="modal"
+                      data-bs-target="#exampleModal{{data.item_id}}"
+                    >
+                      Create review
+                    </button>
+
+                    <!-- Modal -->
+                    <div
+                      class="modal fade"
+                      id="exampleModal{{data.item_id}}"
+                      tabindex="-1"
+                      aria-labelledby="exampleModalLabel"
+                      aria-hidden="true"
+                    >
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="exampleModalLabel">{{data.item_name}}</h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <form method="post" action="{{url_for('add_review', prod_id=data.item_id)}}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <div class="modal-body">
+                              <select
+                                class="form-select mb-3"
+                                aria-label="Default select example"
+                                name="rating"
+                                required="required"
+                              >
+                                <option style="display: none">Choose a rating</option>
+                                <option value="1">One</option>
+                                <option value="2">Two</option>
+                                <option value="3">Three</option>
+                                <option value="4">Four</option>
+                                <option value="5">Five</option>
+                              </select>
+
+                              <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="floatingInput" name="review" required />
+                                <label for="floatingInput">Message</label>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              <button type="submit" class="btn btn-success">Submit</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  {% else %}
+                  <td>
+                    <!-- Button trigger modal -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-dark"
+                      data-bs-toggle="modal"
+                      data-bs-target="#exampleModal{{data.item_id}}"
+                    >
+                      Edit review
+                    </button>
+
+                    <!-- Modal -->
+                    <div
+                      class="modal fade"
+                      id="exampleModal{{data.item_id}}"
+                      tabindex="-1"
+                      aria-labelledby="exampleModalLabel"
+                      aria-hidden="true"
+                    >
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="exampleModalLabel">{{data.item_name}}</h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <form
+                            method="post"
+                            action="{{url_for('update_review', user_id=user_id, prod_id=data.item_id)}}"
+                          >
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <div class="modal-body">
+                              <select
+                                class="form-select mb-3"
+                                aria-label="Default select example"
+                                name="rating"
+                                required="required"
+                              >
+                                <option style="display: none">{{data["isReviewed"].rating}}</option>
+                                <option value="1">One</option>
+                                <option value="2">Two</option>
+                                <option value="3">Three</option>
+                                <option value="4">Four</option>
+                                <option value="5">Five</option>
+                              </select>
+
+                              <div class="form-floating mb-3">
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="floatingInput"
+                                  name="review"
+                                  value='{{data["isReviewed"].rating_desc}}'
+                                  required
+                                />
+                                <label for="floatingInput">Message</label>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                              <button type="submit" class="btn btn-success">Update</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  {% endif %} {% endif %}
+                </tr>
+
+                {% endfor %} {% if order_data[order_id]['venue'] %}
+                <tr class="p-2">
+                  <td>
+                    <img
+                      src="{{order_data[order_id]['venue']['venue_img']}}"
+                      width="50"
+                      alt="{{order_data[order_id]['venue']['venue_img']}}"
+                      class="img-fluid"
+                    />
+                  </td>
+                  <td>{{order_data[order_id]['venue']['venue_name']}}</td>
+                  <td>-</td>
+                  <td>${{order_data[order_id]['venue']['venue_price']}}</td>
+                  <td>${{order_data[order_id]['venue']['venue_price']}}</td>
+                  {% if order_data[order_id]["order_status"] == "Delivered"%} {% if
+                  order_data[order_id]["venue"]["isReviewed"] == "" %}
+                  <td>
+                    <!-- Button trigger modal -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-dark"
+                      data-bs-toggle="modal"
+                      data-bs-target="#exampleModal{{order_data[order_id]['venue']['venue_id']}}"
+                    >
+                      Create review
+                    </button>
+
+                    <!-- Modal -->
+                    <div
+                      class="modal fade"
+                      id="exampleModal{{order_data[order_id]['venue']['venue_id']}}"
+                      tabindex="-1"
+                      aria-labelledby="exampleModalLabel"
+                      aria-hidden="true"
+                    >
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="exampleModalLabel">
+                              {{order_data[order_id]['venue']['venue_name']}}
+                            </h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <form
+                            method="post"
+                            action="{{url_for('add_review', prod_id=order_data[order_id]['venue']['venue_id'])}}"
+                          >
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <div class="modal-body">
+                              <select
+                                class="form-select mb-3"
+                                aria-label="Default select example"
+                                name="rating"
+                                required
+                              >
+                                <option style="display: none">Choose a rating</option>
+                                <option value="1">One</option>
+                                <option value="2">Two</option>
+                                <option value="3">Three</option>
+                                <option value="4">Four</option>
+                                <option value="5">Five</option>
+                              </select>
+
+                              <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="floatingInput" name="review" required />
+                                <label for="floatingInput">Message</label>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              <button type="submit" class="btn btn-success">Submit</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  {% else %}
+                  <td>
+                    <!-- Button trigger modal -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-dark"
+                      data-bs-toggle="modal"
+                      data-bs-target="#exampleModal{{order_data[order_id]['venue']['venue_id']}}"
+                    >
+                      Edit review
+                    </button>
+
+                    <!-- Modal -->
+                    <div
+                      class="modal fade"
+                      id="exampleModal{{order_data[order_id]['venue']['venue_id']}}"
+                      tabindex="-1"
+                      aria-labelledby="exampleModalLabel"
+                      aria-hidden="true"
+                    >
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="exampleModalLabel">
+                              {{order_data[order_id]['venue']['venue_name']}}
+                            </h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                          </div>
+                          <form
+                            method="post"
+                            action="{{url_for('update_review', user_id=user_id, prod_id=order_data[order_id]['venue']['venue_id'])}}"
+                          >
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <div class="modal-body">
+                              <select
+                                class="form-select mb-3"
+                                aria-label="Default select example"
+                                name="rating"
+                                required="required"
+                              >
+                                <option style="display: none">
+                                  {{order_data[order_id]["venue"]["isReviewed"].rating}}
+                                </option>
+                                <option value="1">One</option>
+                                <option value="2">Two</option>
+                                <option value="3">Three</option>
+                                <option value="4">Four</option>
+                                <option value="5">Five</option>
+                              </select>
+
+                              <div class="form-floating mb-3">
+                                <input
+                                  type="text"
+                                  class="form-control"
+                                  id="floatingInput"
+                                  name="review"
+                                  value='{{order_data[order_id]["venue"]["isReviewed"].rating_desc}}'
+                                  required
+                                />
+                                <label for="floatingInput">Message</label>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                              <button type="submit" class="btn btn-success">Update</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  {% endif %} {% endif %}
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card-wrapper">
+            <div class="title display-6 fw-normal">Payment Details</div>
+            <hr style="border-top: 1px solid grey" />
+            <div class="d-flex flex-row justify-content-between">
+              <div class="type fw-semibold">Items(s) x{{order_data[order_id]['order_items'] | length}}</div>
+              <div class="price">${{order_data[order_id]['total_amount']}}</div>
+            </div>
+            <div class="d-flex flex-row justify-content-between mt-2">
+              <div class="type fw-semibold">Estimated shipping & handling</div>
+              <div class="price">
+                <span class="badge rounded-pill text-bg-warning">FREE</span>
+              </div>
+            </div>
+            <div class="d-flex flex-row justify-content-between mt-2">
+              <div class="type fw-semibold">Delivery Date</div>
+              <div class="price">{{order_data[order_id]['order_datetime']}}</div>
+            </div>
+            <div class="d-flex flex-column justify-content-between mt-2">
+              <div class="type fw-semibold">Delivery Address</div>
+              <div class="price">{{order_data[order_id]['delivery_address']}}</div>
+            </div>
+            <div class="total-wrapper">
+              <div class="d-flex flex-row justify-content-between mt-2">
+                <div class="type">Total</div>
+                <div class="price fw-semibold">${{order_data[order_id]['total_amount']}}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

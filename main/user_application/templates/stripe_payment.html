@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+      #modal-container {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+
+      #modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+
+    <form action="/charge" method="post" id="payment-form">
+      <div class="form-row">
+        <label for="card-element"> Credit or debit card </label>
+        <div id="card-element">
+          <!-- A Stripe Element will be inserted here. -->
+        </div>
+
+        <!-- Used to display Element errors. -->
+        <div id="card-errors" role="alert"></div>
+      </div>
+
+      <button id="modal-trigger">Submit Payment</button>
+
+    </form>
+    <div id="modal-container">
+      <div id="modal-content">
+        <h2>Payment Successful!</h2>
+        <button id="modal-close">Return</button>
+      </div>
+    </div>
+  <div id="ghettodata" data-cart="{{ cart_cookie }}" data-checkout=" {{ checkout_cookie }}" data-email="{{email}}" data-username="{{username}}"hidden></div>
+    <script>
+
+        var cart_deets = {{ cart_cookie | safe }};
+        var checkout_deets = {{ checkout_cookie | safe }};
+      // var cart_deets = JSON.parse(document.getElementById("ghettodata").dataset.cart.replace(/'/g, '"'));
+      // var checkout_deets = JSON.parse(document.getElementById("ghettodata").dataset.checkout.replace(/'/g, '"'))
+
+      console.log(checkout_deets)
+      var username = document.getElementById("ghettodata").dataset.username
+      var items = []
+      for (item of cart_deets["catalogue_cart_details"]){
+        items.push({
+          "item_id":  item[4],
+          "item_quantity": item[2],
+          "item_price": item[3],
+          "item_name": item[1],
+        })
+      }
+      var venue = []
+        for (item of cart_deets["venue_cart_details"]){
+
+            venue.push({
+            "venue_id":  item[3],
+            "venue_datetime": item[1],
+            "venue_price": item[2],
+            "venue_name": item[0],
+            })
+        }
+      console.log(venue)
+      // See your keys here: https://dashboard.stripe.com/apikeys
+      const stripe = Stripe("{{ config['STRIPE_PUBLIC_KEY'] }}");
+      const elements = stripe.elements();
+      // Custom styling can be passed to options when creating an Element.
+      const style = {
+        base: {
+          // Add your base input styles here. For example:
+          fontSize: "16px",
+          color: "#32325d",
+        },
+      };
+
+      // Create an instance of the card Element.
+      const card = elements.create("card", { style });
+
+      // Add an instance of the card Element into the `card-element` <div>.
+      card.mount("#card-element");
+      // Create a token or display an error when the form is submitted.
+      const form = document.getElementById("payment-form");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const { token, error } = await stripe.createToken(card);
+        if (error) {
+          // Inform the customer that there was an error.
+          const errorElement = document.getElementById("card-errors");
+          errorElement.textContent = error.message;
+        } else {
+
+          // Send the token to your server.
+          //   stripeTokenHandler(token);
+          var result={
+          "user_id": document.getElementById("ghettodata").dataset.email,
+          "username": document.getElementById("ghettodata").dataset.username,
+          "token": token.id,
+          "total_amount": cart_deets["total_amount"],
+          "delivery_address": checkout_deets["delivery_address"],
+          "delivery_datetime": checkout_deets["delivery_date"],
+            //rememeber to change this to the datatime instead of date
+          "items": items,
+          "venue": venue[0],
+          }
+          try{
+          var response = await axios.post("http://localhost:5200/api/v1/create_order", result);
+            console.log(response);
+
+          } catch (error) {
+            console.log("error found");
+            console.log(error);
+          }
+
+          if (response['data']['code'] == 201){
+            const modalTrigger = document.getElementById('modal-trigger');
+            const modalContainer = document.getElementById('modal-container');
+            const modalClose = document.getElementById('modal-close');
+            modalContainer.style.display = 'block';
+
+            // Open modal when trigger is clicked
+            // modalTrigger.addEventListener('click', () => {
+            //   modalContainer.style.display = 'block';
+            // });
+
+            // Close modal when close button is clicked
+            modalClose.addEventListener('click', () => {
+              window.location.href = 'http://127.0.0.1:5902/order-logs/' + response['data']['order_id'];
+            });
+          }
+        }
+      });
+
+    </script>
+  </body>
+</html>

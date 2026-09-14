@@ -1,0 +1,60 @@
+.btn-light {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  color: #ffffff;
+}
+
+.btn-light:hover {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-success {
+  background: #4caf50 !important;
+  /*color: #286731 !important;*/
+  color: #ffffff !important;
+  /*font-weight: 600;*/
+  border: none;
+}
+
+.btn-success:hover {
+  /*background-color: rgba(0, 0, 0, 0.5) !important;*/
+  color: white !important;
+  font-weight: 600;
+}
+
+.form-control {
+  /*background-color: rgb(234, 234, 234) !important;*/
+  background-color: rgba(13, 12, 34, 0.05) !important;
+  border: none;
+}
+
+/** GALAXY S5 **/
+@media only screen and (min-device-width: 360px) and (max-device-width: 640px) {
+  .contact img {
+    display: none;
+  }
+
+  .contact {
+    margin-top: 1rem;
+  }
+
+  .col-md-6 {
+    margin-top: 0rem !important;
+  }
+}
+
+/** PIXEL 2 **/
+@media only screen and (min-device-width: 411px) and (max-device-width: 731px) {
+  .contact img {
+    display: none;
+  }
+
+  .contact {
+    margin-top: 1rem;
+  }
+
+  .col-md-6 {
+    margin-top: 0rem !important;
+  }
+}

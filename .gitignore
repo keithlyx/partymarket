@@ -1,0 +1,14 @@
+
+__pycache__/
+*.py[cod]
+*.db
+*.db-*
+*.sqbpro
+.DS_Store
+.idea/
+.vscode/
+node_modules/
+venv/
+.env
+.env.*
+!.env.example

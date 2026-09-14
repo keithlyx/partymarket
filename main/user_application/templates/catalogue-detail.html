@@ -1,0 +1,193 @@
+{% extends "base.html" %} {% block content %}
+
+<link rel="stylesheet" type="text/css" href="/static/css/main/catalogue-detail.css" />
+
+<main>
+  <div class="main-wrapper">
+    <div class="container">
+      <nav
+        style="
+          --bs-breadcrumb-divider: url(
+            &#34;data:image/svg + xml,
+            %3Csvgxmlns='http://www.w3.org/2000/svg'width='8'height='8'%3E%3Cpathd='M2.5 0L1 1.5 3.5 4 1 6.5 2.5 8l4-4-4-4z'fill='%236c757d'/%3E%3C/svg%3E&#34;
+          );
+        "
+        aria-label="breadcrumb"
+      >
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item">Home</li>
+          <li class="breadcrumb-item active" aria-current="page">Catalogue</li>
+          <li class="breadcrumb-item active" aria-current="page">{{catalogue_data.category_name}}</li>
+          <li class="breadcrumb-item active" aria-current="page">{{catalogue_data.item_name}}</li>
+        </ol>
+      </nav>
+      <div class="row">
+        <div class="col">
+          <img src="{{catalogue_data.item_img}}" alt="" class="img-fluid" />
+        </div>
+        <div class="col">
+          <div class="title display-6 fw-normal">{{catalogue_data.item_name}}</div>
+          <div class="d-flex flex-row mt-2">
+            <div class="review-score">
+              <img
+                src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png"
+                width="20"
+                alt=""
+                class="img-fluid mb-1"
+              />
+            </div>
+            <div class="review-count ms-2">{{catalogue_data.item_rating}}({{catalogue_data.review_count}} Reviews)</div>
+          </div>
+
+          <div class="price">
+            <div class="display-6 mt-1">${{catalogue_data.item_price}}</div>
+          </div>
+          <hr />
+          <div class="about">
+            <h6>Description</h6>
+            <p class="description text-muted">{{catalogue_data.item_description}}</p>
+          </div>
+          <div class="buttons">
+            <form method="post" action="{{url_for('add_to_cart', prod_id=catalogue_data.item_id)}}">
+              <div class="d-flex flex-row">
+                <div class="quantity">
+                  <div class="form mb-3">
+                    <input type="number" class="form-control" placeholder="Quantity" value="1" name="quantity" hidden />
+                  </div>
+                </div>
+                <div class="cart">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+                  <button type="submit" class="btn btn-warning">Add to Cart</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<section>
+  <div class="reviews-wrapper mt-5">
+    <div class="container">
+      <div class="d-flex flex-row justify-content-between">
+        <h3 class="review-title">Reviews</h3>
+        <!-- <button class="btn btn-outline-dark">Add Review</button> -->
+        <!-- Button trigger modal -->
+        <!-- <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#exampleModal">
+          Add Review
+        </button> -->
+
+        <!-- Modal -->
+        <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h1 class="modal-title fs-5" id="exampleModalLabel">Add Review</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <form method="post" action="{{url_for('add_review', prod_id=catalogue_data.item_id)}}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="modal-body">
+                  <select class="form-select mb-3" aria-label="Default select example" name="rating">
+                    <option style="display: none">Choose a rating</option>
+                    <option value="1">One</option>
+                    <option value="2">Two</option>
+                    <option value="3">Three</option>
+                    <option value="4">Four</option>
+                    <option value="5">Five</option>
+                  </select>
+
+                  <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="floatingInput" name="review" />
+                    <label for="floatingInput">Message</label>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                  <button class="btn btn-success" type="submit">Submit</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      <hr />
+
+      {% if not catalogue_review %}
+      <p>No reviews yet</p>
+      {% else %} {% for data in catalogue_review %}
+      <div class="review-wrapper">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="d-flex flex-row">
+              <div class="avatar">
+                <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" width="50" alt="" class="img-fluid" />
+              </div>
+              <div class="info ms-3 mt-3">
+                <div class="username">
+                  <h6>{{data.user_id}}</h6>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="ratings">
+              <span>
+                <img
+                  src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png"
+                  width="20"
+                  alt=""
+                  class="img-fluid mb-1"
+                />
+              </span>
+              <span>
+                <img
+                  src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png"
+                  width="20"
+                  alt=""
+                  class="img-fluid mb-1"
+                />
+              </span>
+              <span>
+                <img
+                  src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png"
+                  width="20"
+                  alt=""
+                  class="img-fluid mb-1"
+                />
+              </span>
+              <span>
+                <img
+                  src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png"
+                  width="20"
+                  alt=""
+                  class="img-fluid mb-1"
+                />
+              </span>
+              <span>
+                <img
+                  src="https://cdn-icons-png.flaticon.com/512/1828/1828970.png"
+                  width="20"
+                  alt=""
+                  class="img-fluid mb-1"
+                />
+              </span>
+              <span class="date text-muted">{{data.created_date}}</span>
+            </div>
+            <div class="review mt-1">
+              <p class="text-muted">{{data.rating_desc}}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %} {% endif %}
+
+      <hr />
+    </div>
+  </div>
+</section>
+
+{% endblock %}

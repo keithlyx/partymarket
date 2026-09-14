@@ -1,0 +1,240 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Oxygen:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Viga&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Open+Sans:wght@300;400;600;700;800&display=swap");
+
+.font-noto {
+  font-family: "Noto Sans JP", sans-serif;
+}
+
+.font-open-sans {
+  font-family: "Open Sans", sans-serif;
+}
+
+.font-nunito {
+  font-family: "Nunito", sans-serif;
+}
+
+.font-poppins {
+  font-family: "Poppins", sans-serif;
+}
+
+.font-viga {
+  font-family: "Viga", sans-serif;
+}
+
+.font-roboto {
+  font-family: "Roboto", sans-serif;
+}
+
+.font-oxygen {
+  font-family: "Oxygen", sans-serif;
+}
+
+.btn-light-grey {
+  background: #ededed;
+}
+
+* {
+  font-family: "Poppins", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.navbar .navbar-toggler-icon {
+  background-image: url("/static/img/menu.png") !important;
+}
+
+.navbar .navbar-toggler {
+  border: none;
+}
+
+.navbar {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  box-shadow: rgba(0, 0, 0, 0.15) 1.95px 1.95px 2.6px;
+}
+
+.navbar-brand {
+  /*color: #4caf50 !important;*/
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  /*font-family: 'viga', cursive;*/
+}
+
+.nav-item {
+  padding-left: 1.2rem;
+}
+
+.nav-item a:hover {
+  color: #4caf50 !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+  font-weight: 600;
+}
+
+#sign-up {
+  /*background: #93c47d !important;*/
+  /*color: #286731 !important;*/
+  /*background-color: #0d0c23;*/
+  background-color: black;
+  color: #fff;
+  border-radius: 100px;
+  height: 48px;
+  padding: 12px 24px;
+}
+
+#login {
+  background-color: #ffffff;
+  /*border-radius: .25rem;*/
+  border-radius: 100px;
+  /*border: 2px solid #0d0c23;*/
+  border: 1px solid white;
+  height: 48px;
+  padding: 10px 24px;
+  font-weight: 600 !important;
+  color: #0d0c23 !important;
+}
+
+#login:hover {
+  background-color: #0d0c23;
+  color: #ffffff !important;
+  font-weight: 900;
+}
+
+#sign-up {
+  color: #ffffff !important;
+}
+
+#sign-up:hover {
+  font-weight: 600;
+}
+
+.text-lime {
+  color: #2aebc4 !important;
+}
+
+.text-diamond {
+  color: #00b4ba !important;
+}
+
+.text-green-dark {
+  color: #009688 !important;
+}
+
+.text-green-medium {
+  color: #4caf50 !important;
+}
+
+.text-green-light {
+  color: #8abb17 !important;
+}
+
+/* width */
+::-webkit-scrollbar {
+  width: 12px !important;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: rgba(222, 222, 222, 0.75);
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.5s 0.5s ease-out;
+  height: 10px !important;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  /*background: #b9dabd !important;*/
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* hr {
+  border-top: 3px solid #ddd;
+} */
+
+footer {
+  /* border: 1px solid blueviolet; */
+  color: white;
+  margin-top: 2rem;
+}
+
+#instagram:hover {
+  background: -webkit-linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  cursor: pointer;
+}
+
+#facebook:hover {
+  color: #1976d2;
+  cursor: pointer;
+}
+
+#twitter:hover {
+  color: #03a9f4;
+  cursor: pointer;
+}
+
+.active {
+  font-weight: 500 !important;
+}
+
+/** GALAXY S5 **/
+@media only screen and (min-device-width: 360px) and (max-device-width: 640px) {
+  .navbar-nav {
+    text-align: center !important;
+  }
+
+  .nav-item {
+    padding-left: unset;
+  }
+
+  .dropdown-item {
+    text-align: center !important;
+  }
+
+  .navbar-brand {
+    padding-right: 8rem;
+  }
+
+  #sign-up {
+    margin-top: 0.4rem;
+  }
+}
+
+/** PIXEL 2 **/
+@media only screen and (min-device-width: 411px) and (max-device-width: 731px) {
+  .navbar-nav {
+    text-align: center !important;
+  }
+
+  .nav-item {
+    padding-left: unset;
+  }
+
+  .dropdown-item {
+    text-align: center !important;
+  }
+
+  .navbar-brand {
+    padding-right: 10rem;
+  }
+
+  #sign-up {
+    margin-top: 0.4rem;
+  }
+}

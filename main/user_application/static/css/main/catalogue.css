@@ -1,0 +1,53 @@
+#fullpage {
+  text-align: center;
+}
+
+.navbar {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 99;
+  background-color: transparent !important;
+  box-shadow: none;
+}
+
+.navbar .nav-item a,
+.navbar-brand {
+  color: white;
+}
+
+.section:first-child {
+  background-color: #40513b;
+}
+
+.section:nth-child(2) {
+  background-color: #609966;
+}
+
+.section:last-child {
+  background-color: #9dc08b;
+}
+
+.section:first-child h1,
+.section:nth-child(2) h1,
+.section:last-child h1 {
+  color: white;
+  font-weight: 500;
+  margin-bottom: 2rem;
+}
+
+.card {
+  border: 3px solid white;
+  box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+  min-height: 23.5rem;
+}
+
+.card-text {
+  font-weight: 400;
+}
+
+.card img {
+  max-height: 12rem;
+}
