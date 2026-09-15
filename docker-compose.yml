@@ -201,8 +201,11 @@ services:
       - "5200:5200"
     restart: always
     environment:
-      rabbit_host: rabbitmq
-      rabbit_port: 5672
+      PAYMENT_URL: "http://payment:5008/api/v1/payments"
+      CART_URL: "http://cart:5005/api/v1/carts"
+      ORDER_URL: "http://order:5006/api/v1/orders"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       PYTHONUNBUFFERED: 1
 
     depends_on:
@@ -226,8 +229,9 @@ services:
     networks:
       - my-networks
     environment:
-      rabbit_host: rabbitmq
-      rabbit_port: 5672
+      CATALOGUE_URL: "http://catalogue:5004/api/v1/catalogue"
+      VENUE_URL: "http://venue:5003/api/v1/venues"
+      REVIEW_URL: "http://review:5007/api/v1/reviews"
     ports:
       - "5400:5400"
     restart: always
@@ -254,6 +258,10 @@ services:
     ports:
       - "5300:5300"
     restart: always
+    environment:
+      CATALOGUE_URL: "http://catalogue:5004/api/v1/catalogue"
+      VENUE_URL: "http://venue:5003/api/v1/venues"
+      ORDER_URL: "http://order:5006/api/v1/orders"
     depends_on:
       - venue
       - catalogue
@@ -277,6 +285,11 @@ services:
     ports:
       - "5700:5700"
     restart: always
+    environment:
+      PAYMENT_URL: "http://payment:5008/api/v1/refunds"
+      ORDER_URL: "http://order:5006/api/v1/orders"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
     depends_on:
       - venue
       - catalogue

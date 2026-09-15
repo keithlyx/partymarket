@@ -3,8 +3,8 @@ from os import environ
 import pika
 
 
-hostname = environ.get("rabbit_host") or environ.get("rabbit-host") or "rabbitmq"
-port = int(environ.get("rabbit_port", 5672))
+hostname = environ.get("RABBITMQ_HOST") or "rabbitmq"
+port = int(environ.get("RABBITMQ_PORT", 5672))
 exchangename = "email_exchange"
 exchangetype = "topic"
 queue_name = "email_queue"

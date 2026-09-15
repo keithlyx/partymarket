@@ -11,8 +11,8 @@ from decimal import Decimal, InvalidOperation
 app = Flask(__name__)
 CORS(app)
 
-payment_URL = environ.get('payment_URL') or "http://payment:5008/api/v1/refunds"
-order_url = environ.get('order_URL') or "http://order:5006/api/v1/orders"
+payment_url = environ.get('PAYMENT_URL') or "http://payment:5008/api/v1/refunds"
+order_url = environ.get('ORDER_URL') or "http://order:5006/api/v1/orders"
 
 
 @app.route('/api/v1/refunds', methods=["POST"])
@@ -42,7 +42,7 @@ def refund():
 
 def process_refund(data):
     order_id = data["order_id"]
-    refund = invoke_http(payment_URL, method="POST", json={
+    refund = invoke_http(payment_url, method="POST", json={
         "charge_id": order_id,
         "amount_cents": data["amount_cents"],
     })

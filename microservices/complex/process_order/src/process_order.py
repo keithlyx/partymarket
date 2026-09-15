@@ -29,9 +29,9 @@ class OrderRequest(TypedDict, total=False):
     venue: Dict[str, Any]
 
 
-payment_url = environ.get("payment_URL") or "http://payment:5008/api/v1/payments"
-cart_url = environ.get("cart_URL") or "http://cart:5005/api/v1/carts"
-order_url = environ.get("order_URL") or "http://order:5006/api/v1/orders"
+payment_url = environ.get("PAYMENT_URL") or "http://payment:5008/api/v1/payments"
+cart_url = environ.get("CART_URL") or "http://cart:5005/api/v1/carts"
+order_url = environ.get("ORDER_URL") or "http://order:5006/api/v1/orders"
 
 app = Flask(__name__)
 CORS(app)

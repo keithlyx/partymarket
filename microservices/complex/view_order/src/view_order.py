@@ -4,9 +4,9 @@ from flask_cors import CORS
 from os import environ
 from invokes import invoke_http
 
-catalogue_url = environ.get('catalogue_URL') or "http://catalogue:5004/api/v1/catalogue"
-venue_url = environ.get('venue_URL') or "http://venue:5003/api/v1/venues"
-order_url = environ.get('order_URL') or "http://order:5006/api/v1/orders"
+catalogue_url = environ.get('CATALOGUE_URL') or "http://catalogue:5004/api/v1/catalogue"
+venue_url = environ.get('VENUE_URL') or "http://venue:5003/api/v1/venues"
+order_url = environ.get('ORDER_URL') or "http://order:5006/api/v1/orders"
 
 app = Flask(__name__)
 CORS(app)
