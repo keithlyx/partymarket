@@ -105,7 +105,7 @@ def update_venue_rating(venue_id):
                     "message": "Venue rating updated."
                 }
             ), 200
-        except Exception as e:
+        except Exception:
             db.session.rollback()
             return jsonify(
                 {

@@ -257,7 +257,7 @@ def get_order(order_id):
 
 @app.route("/api/v1/orders", methods=['POST'])
 def create_order():
-    data = request.get_json()
+    data = request.get_json(silent=True)
     validation_error = _validate_order(data)
     if validation_error:
         return jsonify({"code": 400, "message": validation_error}), 400

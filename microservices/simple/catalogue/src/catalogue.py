@@ -103,7 +103,7 @@ def update_item_rating(item_id):
                     "data": item.json()
                 }
             )
-        except Exception as e:
+        except Exception:
             db.session.rollback()
             return jsonify(
                 {
@@ -111,7 +111,7 @@ def update_item_rating(item_id):
                     "data": {
                         "item_id": item_id
                     },
-                "message": "An error occurred while updating the item."
+                    "message": "An error occurred while updating the item."
                 }
             ), 500
     return jsonify(
