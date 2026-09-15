@@ -1,3 +1,5 @@
+import pytest
+
 from .conftest import load_module
 
 
@@ -76,3 +78,17 @@ def test_order_list_is_keyed_by_order_id(monkeypatch):
 
     assert response.status_code == 200
     assert list(response.get_json()["data"]["orders"]) == ["ch_123"]
+
+
+def test_order_enricher_rejects_invalid_downstream_data():
+    enricher = load_module(
+        "order_enricher_validation",
+        "microservices/complex/view_order/src/order_enricher.py",
+    )
+
+    with pytest.raises(enricher.OrderEnrichmentError):
+        enricher.enrich_order(
+            _order_response()["order"],
+            fetch_catalogue_item=lambda item_id: {"code": 200, "data": []},
+            fetch_venue=lambda venue_id: {"code": 200, "data": {}},
+        )

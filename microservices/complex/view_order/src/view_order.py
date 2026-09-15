@@ -2,50 +2,13 @@ from flask import Flask, jsonify, request
 
 from os import environ
 from invokes import invoke_http
+from order_enricher import OrderEnrichmentError, enrich_order
 
 catalogue_url = environ.get('CATALOGUE_URL') or "http://catalogue:5004/api/v1/catalogue"
 venue_url = environ.get('VENUE_URL') or "http://venue:5003/api/v1/venues"
 order_url = environ.get('ORDER_URL') or "http://order:5006/api/v1/orders"
 
 app = Flask(__name__)
-
-def _enrich_order(order):
-    """Add current catalogue descriptions while preserving paid order values."""
-    order_details = dict(order)
-    enriched_items = []
-
-    for item in order.get("order_items", []):
-        item_data = invoke_http(catalogue_url + "/" + item["item_id"], method="GET")
-        if item_data["code"] not in range(200, 300):
-            return None, (jsonify({
-                "code": item_data["code"],
-                "message": f'error from catalogue.py: {item_data["message"]}'
-            }), item_data["code"])
-
-        item_details = dict(item_data["data"])
-        item_details["item_price"] = item["item_price"]
-        item_details["item_quantity"] = item["item_quantity"]
-        enriched_items.append(item_details)
-
-    order_details["order_items"] = enriched_items
-
-    if "venue" in order:
-        paid_venue_details = order["venue"]
-        venue_id = paid_venue_details["venue_id"]
-        venue_data = invoke_http(venue_url + "/" + venue_id, method="GET")
-        if venue_data["code"] not in range(200, 300):
-            return None, (jsonify({
-                "code": venue_data["code"],
-                "message": f'error from venue.py: {venue_data["message"]}'
-            }), venue_data["code"])
-
-        venue_details = dict(venue_data["data"])
-        venue_details["venue_price"] = paid_venue_details["venue_price"]
-        venue_details["venue_datetime"] = paid_venue_details["venue_datetime"]
-        order_details["venue"] = venue_details
-
-    return order_details, None
-
 
 @app.route("/api/v1/orders", methods=["GET"])
 def get_orders():
@@ -68,9 +31,14 @@ def get_orders():
     result_json_to_return = {}
     # Add current item and venue descriptions without replacing paid values.
     for order in order_data["orders"]:
-        order_details, error = _enrich_order(order)
-        if error:
-            return error
+        try:
+            order_details = enrich_order(
+                order,
+                fetch_catalogue_item=lambda item_id: invoke_http(catalogue_url + "/" + item_id, method="GET"),
+                fetch_venue=lambda venue_id: invoke_http(venue_url + "/" + venue_id, method="GET"),
+            )
+        except OrderEnrichmentError as error:
+            return jsonify({"code": error.status_code, "message": error.message}), error.status_code
         result_json_to_return[order["order_id"]] = order_details
 
     return jsonify({
@@ -92,9 +60,14 @@ def get_order_by_id(order_id):
             "message": f'error from order.py:{order_data_user_id["message"]}'
         }), order_data_user_id["code"]
 
-    order_details, error = _enrich_order(order_data_user_id["order"])
-    if error:
-        return error
+    try:
+        order_details = enrich_order(
+            order_data_user_id["order"],
+            fetch_catalogue_item=lambda item_id: invoke_http(catalogue_url + "/" + item_id, method="GET"),
+            fetch_venue=lambda venue_id: invoke_http(venue_url + "/" + venue_id, method="GET"),
+        )
+    except OrderEnrichmentError as error:
+        return jsonify({"code": error.status_code, "message": error.message}), error.status_code
 
     return jsonify({
         "code": 200,
