@@ -102,4 +102,14 @@ python -m compileall -q main microservices
 docker compose config --quiet
 ```
 
+The notification service has its own dependency-free unit tests:
+
+```bash
+cd microservices/simple/emailNode
+npm install
+npm test
+```
+
+GitHub Actions runs the Python tests, notification tests, syntax checks, patch-format checks, and Compose configuration validation on pushes and pull requests.
+
 Stripe, RabbitMQ, SendGrid, and MySQL integration tests require the corresponding local services or test credentials. The unit tests mock external payment, messaging, and HTTP boundaries where appropriate.

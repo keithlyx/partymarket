@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS venue (
   venue_img VARCHAR(1000) NOT NULL,
   venue_description VARCHAR(1000) NOT NULL,
   venue_price DECIMAL(10, 2) NOT NULL,
-  venue_rating FLOAT,
+  venue_rating FLOAT NOT NULL,
   review_count INT NOT NULL,
   address VARCHAR(255) NOT NULL
 );
