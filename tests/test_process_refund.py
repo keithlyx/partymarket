@@ -81,3 +81,41 @@ def test_refund_rejects_orders_that_are_not_accepted(monkeypatch):
     )
 
     assert response.status_code == 409
+
+
+def test_refund_handles_malformed_order_response(monkeypatch):
+    process_refund = load_module(
+        "process_refund_service_malformed_response",
+        "microservices/complex/process_refund/src/process_refund.py",
+    )
+    monkeypatch.setattr(process_refund, "invoke_http", lambda *args, **kwargs: None)
+
+    response = process_refund.app.test_client().post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+
+    assert response.status_code == 502
+
+
+def test_refund_rejects_amount_with_more_than_two_decimal_places(monkeypatch):
+    process_refund = load_module(
+        "process_refund_service_invalid_amount",
+        "microservices/complex/process_refund/src/process_refund.py",
+    )
+    monkeypatch.setattr(process_refund, "invoke_http", lambda *args, **kwargs: {
+        "code": 200,
+        "order": {
+            "order_id": "ch_123",
+            "user_id": "user@example.com",
+            "total_amount": "12.345",
+            "order_status": "Accepted",
+        },
+    })
+
+    response = process_refund.app.test_client().post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+
+    assert response.status_code == 502
