@@ -5,6 +5,31 @@ const amqp_setup = require('./amqp_setup');
 const process = require('process');
 const monitorBindingKey = '*.email';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
+
+function escapeHtml(value) {
+  const entities = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return String(value ?? '').replace(/[&<>"']/g, character => entities[character]);
+}
+
+function validateMessage(data) {
+  if (!data || typeof data !== 'object' || !['order_confirmation', 'order_refund'].includes(data.type)) {
+    return 'Email event has an unsupported type.';
+  }
+  if (typeof data.user_id !== 'string' || !data.user_id.trim() || typeof data.order_id !== 'string' || !data.order_id.trim()) {
+    return 'Email event is missing a recipient or order ID.';
+  }
+  if (data.type === 'order_confirmation' && (!Array.isArray(data.order_items) || data.total_amount === undefined)) {
+    return 'Order confirmation event is missing order details.';
+  }
+  return null;
+}
 
 async function receiveConfirmation() {
   try {
@@ -46,6 +71,12 @@ async function callback(msg) {
     return false;
   }
 
+  const validationError = validateMessage(jsonMsg);
+  if (validationError) {
+    processError(validationError);
+    return false;
+  }
+
   await mail(jsonMsg);
   return true;
 }
@@ -62,7 +93,7 @@ async function mail(jsonMsg) {
 
   const message = {
     to: jsonMsg['user_id'],
-    from: 'partypoopersSMU@gmail.com',
+    from: SENDGRID_FROM_EMAIL,
     subject: sub,
     html: emailContent,
   };
@@ -118,8 +149,8 @@ function format_email(data) {
           <body>
             <div class="container">
               <h1>Order Refund'</h1>
-              <p>Dear ${data.user_id},</p>
-              <p>Your order #${data.order_id}'s has been cancelled.</p>
+              <p>Dear ${escapeHtml(data.user_id)},</p>
+              <p>Your order #${escapeHtml(data.order_id)} has been cancelled.</p>
               <p>Your refund has been processed and will be credited to your account soon.</p>
             </div>
           </body>
@@ -181,8 +212,8 @@ function format_email(data) {
     <body>
       <div class="container">
         <h1>Order Notification</h1>
-        <p>Dear ${data.username},</p>
-        <p>Thank you for placing an order with us. Below are the details of your order #${data.order_id}:</p>
+        <p>Dear ${escapeHtml(data.username || data.user_id)},</p>
+        <p>Thank you for placing an order with us. Below are the details of your order #${escapeHtml(data.order_id)}:</p>
         <table class="details">
           <thead>
             <tr>
@@ -192,7 +223,7 @@ function format_email(data) {
             </tr>
           </thead>
           <tbody>
-            ${data.order_items.map(item => `<tr><td>${item.item_name}</td><td>$${item.item_price}</td><td>${item.item_quantity}</td></tr>`).join('')}
+            ${data.order_items.map(item => `<tr><td>${escapeHtml(item.item_name)}</td><td>$${escapeHtml(item.item_price)}</td><td>${escapeHtml(item.item_quantity)}</td></tr>`).join('')}
             ${data.venue ? `
             <tr>
               <th>Venue</th>
@@ -200,15 +231,15 @@ function format_email(data) {
               <th>Booking Details</th>
             </tr>
             <tr>
-              <td>${data.venue.venue_name}</td>
-              <td>$${data.venue.venue_price}</td>
-              <td>${data.venue.venue_datetime}</td>
+              <td>${escapeHtml(data.venue.venue_name)}</td>
+              <td>$${escapeHtml(data.venue.venue_price)}</td>
+              <td>${escapeHtml(data.venue.venue_datetime)}</td>
             </tr>` : ''}
           </tbody>
           <tfoot>
             <tr>
               <td colspan="2" class="total">Total:</td>
-              <td>$${data.total_amount}</td>
+              <td>$${escapeHtml(data.total_amount)}</td>
             </tr>
           </tfoot>
         </table>
@@ -216,7 +247,6 @@ function format_email(data) {
       </div>
     </body>
     </html>`;
-    return output
   }
-
+  return null;
 }

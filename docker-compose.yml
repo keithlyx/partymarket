@@ -190,6 +190,7 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       SENDGRID_API_KEY: "${SENDGRID_API_KEY}"
+      SENDGRID_FROM_EMAIL: "${SENDGRID_FROM_EMAIL}"
 
 
   ###############################################
