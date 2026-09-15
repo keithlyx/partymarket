@@ -2,11 +2,11 @@
 const path = require('path');
 const sgMail = require('@sendgrid/mail');
 const amqp_setup = require('./amqp_setup');
+const { isNonEmptyString, validateMessage } = require('./notification_validation');
 const process = require('process');
 const monitorBindingKey = '*.email';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
-const SUPPORTED_EVENT_TYPES = ['order_confirmation', 'order_refund'];
 
 function escapeHtml(value) {
   const entities = {
@@ -17,29 +17,6 @@ function escapeHtml(value) {
     "'": '&#39;',
   };
   return String(value ?? '').replace(/[&<>"']/g, character => entities[character]);
-}
-
-function validateMessage(data) {
-  if (!data || typeof data !== 'object' || !SUPPORTED_EVENT_TYPES.includes(data.type)) {
-    return 'Email event has an unsupported type.';
-  }
-  if (!isNonEmptyString(data.user_id) || !isNonEmptyString(data.order_id)) {
-    return 'Email event is missing a recipient or order ID.';
-  }
-  if (data.type === 'order_confirmation' && !hasOrderDetails(data)) {
-    return 'Order confirmation event is missing order details.';
-  }
-  return null;
-}
-
-function isNonEmptyString(value) {
-  return typeof value === 'string' && Boolean(value.trim());
-}
-
-function hasOrderDetails(data) {
-  return Array.isArray(data.order_items)
-    && data.order_items.every(item => item && typeof item === 'object')
-    && data.total_amount !== undefined;
 }
 
 async function receiveConfirmation() {
@@ -96,8 +73,6 @@ function processError(errorMsg) {
 }
 
 async function sendEmail(jsonMsg) {
-  // email address, subject and body
-  
   const emailContent = formatEmail(jsonMsg);
 
   const subject = jsonMsg.type;
@@ -109,7 +84,6 @@ async function sendEmail(jsonMsg) {
     html: emailContent,
   };
 
-  // sending email and printing status
   try {
     await sgMail.send(message);
   } catch (err) {

@@ -119,3 +119,66 @@ def test_refund_rejects_amount_with_more_than_two_decimal_places(monkeypatch):
     )
 
     assert response.status_code == 502
+
+
+def test_refund_returns_payment_failure_without_updating_order(monkeypatch):
+    process_refund = load_module(
+        "process_refund_service_payment_failure",
+        "microservices/complex/process_refund/src/process_refund.py",
+    )
+    calls = []
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        calls.append((url, method, json))
+        if method == "GET":
+            return {
+                "code": 200,
+                "order": {
+                    "order_id": "ch_123",
+                    "user_id": "user@example.com",
+                    "total_amount": "12.34",
+                    "order_status": "Accepted",
+                },
+            }
+        if "refunds" in url:
+            return {"code": 402, "message": "card provider rejected refund"}
+        raise AssertionError(f"Unexpected downstream call: {method} {url}")
+
+    monkeypatch.setattr(process_refund, "invoke_http", fake_invoke)
+    response = process_refund.app.test_client().post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+
+    assert response.status_code == 402
+    assert not any(method == "PATCH" for _, method, _ in calls)
+
+
+def test_refund_reports_order_update_failure_after_payment_refund(monkeypatch):
+    process_refund = load_module(
+        "process_refund_service_update_failure",
+        "microservices/complex/process_refund/src/process_refund.py",
+    )
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        if method == "GET":
+            return {
+                "code": 200,
+                "order": {
+                    "order_id": "ch_123",
+                    "user_id": "user@example.com",
+                    "total_amount": "12.34",
+                    "order_status": "Accepted",
+                },
+            }
+        if "refunds" in url:
+            return {"code": 200, "refund_id": "re_123"}
+        return {"code": 503, "message": "order unavailable"}
+
+    monkeypatch.setattr(process_refund, "invoke_http", fake_invoke)
+    response = process_refund.app.test_client().post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+
+    assert response.status_code == 503

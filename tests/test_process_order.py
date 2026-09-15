@@ -93,3 +93,54 @@ def test_process_order_rejects_missing_fields():
         json={"user_id": "user@example.com"},
     )
     assert response.status_code == 400
+
+
+def test_process_order_returns_payment_failure_without_storing_order(monkeypatch):
+    process_order = load_module(
+        "process_order_service_payment_failure",
+        "microservices/complex/process_order/src/process_order.py",
+    )
+    calls = []
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        calls.append((url, method, json))
+        if method == "GET" and "/carts/" in url:
+            return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 1}], "cart_venues": []}}
+        if method == "GET" and "/catalogue/" in url:
+            return {"code": 200, "data": {"item_price": "12.34"}}
+        if "payments" in url:
+            return {"code": 402, "message": "card declined"}
+        raise AssertionError(f"Unexpected downstream call: {method} {url}")
+
+    monkeypatch.setattr(process_order, "invoke_http", fake_invoke)
+    response = process_order.app.test_client().post(
+        "/api/v1/orders",
+        json=valid_order(),
+    )
+
+    assert response.status_code == 402
+    assert not any(method == "POST" and "/orders" in url for url, method, _ in calls)
+
+
+def test_process_order_rejects_incomplete_payment_response(monkeypatch):
+    process_order = load_module(
+        "process_order_service_incomplete_payment",
+        "microservices/complex/process_order/src/process_order.py",
+    )
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        if method == "GET" and "/carts/" in url:
+            return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 1}], "cart_venues": []}}
+        if method == "GET" and "/catalogue/" in url:
+            return {"code": 200, "data": {"item_price": "12.34"}}
+        if "payments" in url:
+            return {"code": 200, "receipt_url": "receipt"}
+        raise AssertionError(f"Unexpected downstream call: {method} {url}")
+
+    monkeypatch.setattr(process_order, "invoke_http", fake_invoke)
+    response = process_order.app.test_client().post(
+        "/api/v1/orders",
+        json=valid_order(),
+    )
+
+    assert response.status_code == 502
