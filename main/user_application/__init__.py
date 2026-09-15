@@ -28,14 +28,6 @@ app.config.update(
     REFUND_SERVICE_URL=environ.get('REFUND_SERVICE_URL', 'http://localhost:5700'),
 )
 
-
-@app.context_processor
-def inject_service_urls():
-    return {
-        'process_order_url': app.config['PROCESS_ORDER_SERVICE_URL'],
-        'refund_service_url': app.config['REFUND_SERVICE_URL'],
-    }
-
 db = SQLAlchemy(app)  # database instance
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)

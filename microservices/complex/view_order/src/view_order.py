@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request
 
-from flask_cors import CORS
 from os import environ
 from invokes import invoke_http
 
@@ -9,7 +8,6 @@ venue_url = environ.get('VENUE_URL') or "http://venue:5003/api/v1/venues"
 order_url = environ.get('ORDER_URL') or "http://order:5006/api/v1/orders"
 
 app = Flask(__name__)
-CORS(app)
 
 def _enrich_order(order):
     """Add current catalogue descriptions while preserving paid order values."""

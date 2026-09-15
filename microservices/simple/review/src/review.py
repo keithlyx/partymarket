@@ -3,7 +3,6 @@ from os import environ
 from typing import Any, Optional, TypedDict
 
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -12,7 +11,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = environ["REVIEW_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-CORS(app)
 
 
 class ReviewPayload(TypedDict):

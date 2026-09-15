@@ -12,8 +12,10 @@
       refundBtn.addEventListener('click', async (event) => {
         event.preventDefault();
         try {
-          await axios.post({{ refund_service_url|tojson }} + "/api/v1/refunds", {
+          await axios.post({{ url_for('create_refund')|tojson }}, {
             order_id: chargeId
+          }, {
+            headers: {"X-CSRFToken": {{ csrf_token()|tojson }}}
           });
         } catch (error) {
           refundBtn.disabled = false;

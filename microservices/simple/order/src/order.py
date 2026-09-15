@@ -2,7 +2,6 @@ from os import environ
 from decimal import Decimal, InvalidOperation
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from typing import Any, Dict, List, Optional, TypedDict
 
 app = Flask(__name__)
@@ -12,7 +11,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
 
 db = SQLAlchemy(app)
-CORS(app)
 
 
 class OrderItemPayload(TypedDict):

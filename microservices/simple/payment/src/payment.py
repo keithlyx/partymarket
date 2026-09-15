@@ -2,12 +2,10 @@
 import logging
 from flask import Flask, request, jsonify
 import stripe
-from flask_cors import CORS
 from os import environ
 
 app = Flask(__name__)
 
-CORS(app)
 
 app.config['STRIPE_PUBLIC_KEY'] = environ.get('STRIPE_PUBLIC_KEY', '')
 app.config['SECRET_KEY'] = environ.get('FLASK_SECRET_KEY')

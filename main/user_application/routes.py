@@ -439,7 +439,6 @@ def update_review(user_id, prod_id):
 
 # =========================== AUTH ===========================
 @app.route('/register', methods=['GET', 'POST'])
-@csrf.exempt  # prevent form spams
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('home'))

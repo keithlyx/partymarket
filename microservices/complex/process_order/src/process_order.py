@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 import pika
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 
 import amqp_setup
 from invokes import invoke_http
@@ -33,7 +32,6 @@ catalogue_url = environ.get("CATALOGUE_URL") or "http://catalogue:5004/api/v1/ca
 venue_url = environ.get("VENUE_URL") or "http://venue:5003/api/v1/venues"
 
 app = Flask(__name__)
-CORS(app)
 logger = logging.getLogger(__name__)
 
 

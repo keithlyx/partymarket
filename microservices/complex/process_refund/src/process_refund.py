@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from os import environ
 from invokes import invoke_http
 import amqp_setup
@@ -10,7 +9,6 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 app = Flask(__name__)
-CORS(app)
 logger = logging.getLogger(__name__)
 
 payment_url = environ.get('PAYMENT_URL') or "http://payment:5008/api/v1/refunds"

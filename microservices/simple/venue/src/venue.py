@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from os import environ
 
 
@@ -11,7 +10,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-CORS(app)
 class Venue(db.Model):
     __tablename__ = 'venue'
 

@@ -1,7 +1,6 @@
 from os import environ
 
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -10,7 +9,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = environ["CART_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-CORS(app)
 
 
 class CartItem(db.Model):
