@@ -3,7 +3,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
+from dotenv import load_dotenv
 from os import environ
+from pathlib import Path
+
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)

@@ -1,6 +1,5 @@
-from user_application import db, login_manager, app
+from user_application import db, login_manager
 from flask_login import UserMixin
-from itsdangerous import URLSafeTimedSerializer as Serializer
 
 
 @login_manager.user_loader
@@ -19,6 +18,6 @@ class Users(db.Model, UserMixin):
           return (self.user_id_email)
 
     def __repr__(self):
-        return f"Users('{self.username}', '{self.email}')"
+        return f"Users('{self.name}', '{self.user_id_email}')"
 
 
