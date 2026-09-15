@@ -61,7 +61,7 @@ services:
       - "5003:5003"
     restart: always
     environment:
-      VENUE_DATABASE_URL: "${VENUE_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/venue}"
+      VENUE_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/venue"
     depends_on:
       database:
         condition: service_healthy
@@ -81,7 +81,7 @@ services:
       - "5004:5004"
     restart: always
     environment:
-      CATALOGUE_DATABASE_URL: "${CATALOGUE_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/catalogue}"
+      CATALOGUE_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/catalogue"
     depends_on:
       database:
         condition: service_healthy
@@ -101,7 +101,7 @@ services:
       - "5007:5007"
     restart: always
     environment:
-      REVIEW_DATABASE_URL: "${REVIEW_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/reviews}"
+      REVIEW_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/reviews"
     depends_on:
       database:
         condition: service_healthy
@@ -140,7 +140,7 @@ services:
       - "5006:5006"
     restart: always
     environment:
-      ORDER_DATABASE_URL: "${ORDER_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/orders}"
+      ORDER_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/orders"
     depends_on:
       database:
         condition: service_healthy
@@ -160,7 +160,7 @@ services:
       - "5005:5005"
     restart: always
     environment:
-      CART_DATABASE_URL: "${CART_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/cart}"
+      CART_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/cart"
     depends_on:
       database:
         condition: service_healthy
