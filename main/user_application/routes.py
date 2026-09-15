@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from flask import render_template, url_for, flash, redirect, request, jsonify, make_response
 import json
 from flask_wtf import form
@@ -9,6 +11,13 @@ from user_application.models import Users
 from user_application.forms import RegistrationForm, LoginForm
 from user_application import app, db, bcrypt, csrf
 from user_application.utils import get_cart_cookie, get_checkout_cookie
+
+
+def as_money(value):
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return Decimal("0.00")
 
 
 # =========================== DEFAULT ===========================
@@ -61,7 +70,7 @@ def venue_detail(venue_id):
 def cart():
     catalogue_arr = [] # [(a,b,c)]
     venue_arr = []
-    total_amount = 0
+    total_amount = Decimal("0.00")
     combined_dict = {}
 
     if current_user.is_authenticated:   
@@ -78,7 +87,7 @@ def cart():
                     specific_item = invoke_http('http://localhost:5004/api/v1/catalogue/' + item_id, method='GET')
                     item_name = specific_item['data']['item_name']
                     item_image = specific_item['data']['item_img']
-                    item_price = specific_item['data']['item_price']
+                    item_price = as_money(specific_item['data']['item_price'])
                     total_amount += quantity * item_price
                     catalogue_arr.append((item_image, item_name, quantity, item_price, item_id))
 
@@ -88,11 +97,19 @@ def cart():
                     specific_venue = invoke_http('http://localhost:5003/api/v1/venues/' + venue_id, method='GET')
                     venue_image = specific_venue['data']['venue_img']
                     venue_name = specific_venue['data']['venue_name']
-                    venue_price = specific_venue['data']['venue_price']
+                    venue_price = as_money(specific_venue['data']['venue_price'])
                     total_amount += venue_price
                     venue_arr.append((venue_image, venue_name, venue_price, venue_id))
 
-        combined_dict = {"catalogue_cart_details": catalogue_arr, "venue_cart_details": venue_arr, "total_amount": total_amount}
+        combined_dict = {
+            "catalogue_cart_details": [
+                [item[0], item[1], item[2], str(item[3]), item[4]] for item in catalogue_arr
+            ],
+            "venue_cart_details": [
+                [item[0], item[1], str(item[2]), item[3]] for item in venue_arr
+            ],
+            "total_amount": str(total_amount),
+        }
 
     # returns template
     resp = make_response(render_template("cart.html", title="Cart", catalogue_arr=catalogue_arr, venue_arr=venue_arr, total_amount=total_amount))
@@ -222,6 +239,12 @@ def order_details(order_id):
     print(order_data)
     print("============================================")
     user_review_data = invoke_http("http://localhost:5007/api/v1/reviews", method="GET", params={"user_id": user_id})
+
+    order_data[order_id]["total_amount"] = as_money(order_data[order_id]["total_amount"])
+    for item in order_data[order_id]["order_items"]:
+        item["item_price"] = as_money(item["item_price"])
+    if "venue" in order_data[order_id]:
+        order_data[order_id]["venue"]["venue_price"] = as_money(order_data[order_id]["venue"]["venue_price"])
     
 
         # order_items: arr

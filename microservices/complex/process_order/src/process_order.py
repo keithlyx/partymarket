@@ -16,7 +16,7 @@ from invokes import invoke_http
 class OrderItem(TypedDict):
     item_id: str
     item_quantity: int
-    item_price: float
+    item_price: Any
 
 
 class OrderRequest(TypedDict, total=False):
@@ -85,7 +85,11 @@ def _validate_order(data: Any) -> Optional[str]:
             return "Each item_id must be a non-empty string."
         if isinstance(item["item_quantity"], bool) or not isinstance(item["item_quantity"], int) or item["item_quantity"] < 1:
             return "Each item_quantity must be a positive integer."
-        if isinstance(item["item_price"], bool) or not isinstance(item["item_price"], (int, float)) or item["item_price"] < 0:
+        try:
+            item_price = Decimal(str(item["item_price"]))
+        except (InvalidOperation, ValueError):
+            item_price = Decimal("-1")
+        if isinstance(item["item_price"], bool) or not item_price.is_finite() or item_price < 0 or item_price.as_tuple().exponent < -2:
             return "Each item_price must be a non-negative number."
 
     venue = data.get("venue")

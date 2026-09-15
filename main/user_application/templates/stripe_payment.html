@@ -67,7 +67,7 @@
         items.push({
           "item_id":  item[4],
           "item_quantity": item[2],
-          "item_price": item[3],
+          "item_price": Number(item[3]),
           "item_name": item[1],
         })
       }
@@ -117,7 +117,7 @@
           "user_id": document.getElementById("ghettodata").dataset.email,
           "username": document.getElementById("ghettodata").dataset.username,
           "token": token.id,
-          "total_amount": cart_deets["total_amount"],
+          "total_amount": Number(cart_deets["total_amount"]),
           "delivery_address": checkout_deets["delivery_address"],
           "delivery_datetime": checkout_deets["delivery_date"],
             //rememeber to change this to the datatime instead of date
