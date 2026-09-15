@@ -13,7 +13,7 @@ db = SQLAlchemy(app)
 CORS(app)
 
 
-class Cart_Item(db.Model):
+class CartItem(db.Model):
     __tablename__ = 'cart_item'
 
     user_id = db.Column(db.String, primary_key=True)
@@ -33,7 +33,7 @@ class Cart_Item(db.Model):
         }
 
 
-class Cart_Venue(db.Model):
+class CartVenue(db.Model):
     __tablename__ = 'cart_venue'
 
     user_id = db.Column(db.String, primary_key=True)
@@ -80,14 +80,14 @@ def add_to_cart(user_id, prod_id):
                 "message": "Item quantity must be at least one.",
             }), 400
 
-        cart_item = Cart_Item.query.filter_by(
+        cart_item = CartItem.query.filter_by(
             user_id=user_id,
             item_id=prod_id,
         ).first()
         if cart_item:
             cart_item.quantity += quantity
         else:
-            db.session.add(Cart_Item(
+            db.session.add(CartItem(
                 user_id=user_id,
                 item_id=prod_id,
                 quantity=quantity,
@@ -115,7 +115,7 @@ def add_to_cart(user_id, prod_id):
                 "message": "Venue datetime is required.",
             }), 400
 
-        cart_venue = Cart_Venue.query.filter_by(user_id=user_id).first()
+        cart_venue = CartVenue.query.filter_by(user_id=user_id).first()
         if cart_venue and cart_venue.venue_id != prod_id:
             return jsonify({
                 "code": 409,
@@ -125,7 +125,7 @@ def add_to_cart(user_id, prod_id):
         if cart_venue:
             cart_venue.datetime = venue_datetime
         else:
-            db.session.add(Cart_Venue(
+            db.session.add(CartVenue(
                 user_id=user_id,
                 venue_id=prod_id,
                 datetime=venue_datetime,
@@ -153,8 +153,8 @@ def add_to_cart(user_id, prod_id):
 
 @app.route("/api/v1/carts/<user_id>", methods=["GET"])
 def get_cart(user_id):
-    cart_items = Cart_Item.query.filter_by(user_id=user_id).all()
-    cart_venues = Cart_Venue.query.filter_by(user_id=user_id).all()
+    cart_items = CartItem.query.filter_by(user_id=user_id).all()
+    cart_venues = CartVenue.query.filter_by(user_id=user_id).all()
     return jsonify({
         "code": 200,
         "data": {
@@ -167,12 +167,12 @@ def get_cart(user_id):
 @app.route("/api/v1/carts/<user_id>/products/<product_id>", methods=["DELETE"])
 def delete_item(user_id, product_id):
     if product_id.startswith("i"):
-        cart_record = Cart_Item.query.filter_by(
+        cart_record = CartItem.query.filter_by(
             user_id=user_id,
             item_id=product_id,
         ).first()
     elif product_id.startswith("v"):
-        cart_record = Cart_Venue.query.filter_by(
+        cart_record = CartVenue.query.filter_by(
             user_id=user_id,
             venue_id=product_id,
         ).first()
@@ -223,7 +223,7 @@ def update_quantity(user_id, item_id):
             "message": "Quantity must be at least one.",
         }), 400
 
-    cart_item = Cart_Item.query.filter_by(
+    cart_item = CartItem.query.filter_by(
         user_id=user_id,
         item_id=item_id,
     ).first()
@@ -245,8 +245,8 @@ def update_quantity(user_id, item_id):
 
 @app.route("/api/v1/carts/<user_id>", methods=["DELETE"])
 def delete_cart(user_id):
-    Cart_Item.query.filter_by(user_id=user_id).delete()
-    Cart_Venue.query.filter_by(user_id=user_id).delete()
+    CartItem.query.filter_by(user_id=user_id).delete()
+    CartVenue.query.filter_by(user_id=user_id).delete()
     try:
         db.session.commit()
     except Exception:

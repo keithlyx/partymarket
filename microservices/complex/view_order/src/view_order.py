@@ -4,9 +4,9 @@ from flask_cors import CORS
 from os import environ, path
 from invokes import invoke_http
 
-catalogue_URL = environ.get('catalogue_URL') or "http://catalogue:5004/api/v1/catalogue"
-venue_URL = environ.get('venue_URL') or "http://venue:5003/api/v1/venues"
-order_URL = environ.get('order_URL') or "http://order:5006/api/v1/orders"
+catalogue_url = environ.get('catalogue_URL') or "http://catalogue:5004/api/v1/catalogue"
+venue_url = environ.get('venue_URL') or "http://venue:5003/api/v1/venues"
+order_url = environ.get('order_URL') or "http://order:5006/api/v1/orders"
 
 app = Flask(__name__)
 CORS(app)
@@ -20,7 +20,7 @@ def get_orders():
     # Call order microservice
     # 1. get list of orders
     order_data = invoke_http(
-        order_URL,
+        order_url,
         method="GET",
         params={"user_id": user_id},
     )
@@ -40,7 +40,7 @@ def get_orders():
             paid_item_price = item["item_price"]
             ordered_quantity = item["item_quantity"]
             item_id = item["item_id"]
-            item_data = invoke_http(catalogue_URL + "/" + item_id, method="GET")
+            item_data = invoke_http(catalogue_url + "/" + item_id, method="GET")
             if item_data["code"] not in range(200, 300):
                 return jsonify({
                     "code": item_data["code"],
@@ -65,7 +65,7 @@ def get_orders():
             paid_venue_price = paid_venue_details["venue_price"]
             booked_venue_date = paid_venue_details["venue_datetime"]
 
-            venue_data = invoke_http(venue_URL + "/" + venue_id, method="GET")
+            venue_data = invoke_http(venue_url + "/" + venue_id, method="GET")
             if venue_data["code"] not in range(200, 300):
                 return jsonify({
                     "code": venue_data["code"],
@@ -95,7 +95,7 @@ def get_orders():
 def get_order_by_id(order_id):
     result_json_to_return = {}
     print("retrieving order for order_id: " + order_id)
-    order_data_user_id = invoke_http(order_URL + "/" + order_id, method="GET")
+    order_data_user_id = invoke_http(order_url + "/" + order_id, method="GET")
     if order_data_user_id["code"] not in range(200, 300):
         return jsonify({
             "code": order_data_user_id["code"],
@@ -107,7 +107,7 @@ def get_order_by_id(order_id):
         for item in order_data_user_id["order"]["order_items"]:
 
             specific_item_id = item["item_id"]
-            specific_item_details = invoke_http(catalogue_URL + "/" + specific_item_id, method="GET")
+            specific_item_details = invoke_http(catalogue_url + "/" + specific_item_id, method="GET")
             if specific_item_details["code"] not in range(200, 300):
                 return jsonify({
                     "code": specific_item_details["code"],
@@ -122,7 +122,7 @@ def get_order_by_id(order_id):
     if "venue" in order_data_user_id["order"]:
 
         venue_id = order_data_user_id["order"]["venue"]["venue_id"]
-        specific_venue_details = invoke_http(venue_URL + "/" + venue_id, method="GET")
+        specific_venue_details = invoke_http(venue_url + "/" + venue_id, method="GET")
         if specific_venue_details["code"] not in range(200, 300):
             return jsonify({
                 "code": specific_venue_details["code"],

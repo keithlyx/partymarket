@@ -41,7 +41,7 @@ def _validate_review(data: Any, require_identity: bool = True) -> Optional[str]:
     return None
 
 
-class Review_db(db.Model):
+class Review(db.Model):
     __tablename__ = 'review_items'
 
     user_id = db.Column(db.String, primary_key=True)
@@ -81,7 +81,7 @@ def get_reviews():
             "message": "product_id or user_id is required.",
         }), 400
 
-    query = Review_db.query
+    query = Review.query
     if product_id:
         query = query.filter_by(prod_id=product_id)
     if user_id:
@@ -98,7 +98,7 @@ def get_reviews():
 
 @app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["GET"])
 def get_review(user_id, prod_id):
-    review = Review_db.query.filter_by(
+    review = Review.query.filter_by(
         user_id=user_id,
         prod_id=prod_id,
     ).first()
@@ -121,7 +121,7 @@ def add_review():
     if validation_error:
         return jsonify({"code": 400, "message": validation_error}), 400
 
-    existing_review = Review_db.query.filter_by(
+    existing_review = Review.query.filter_by(
         user_id=data["user_id"],
         prod_id=data["prod_id"],
     ).first()
@@ -131,7 +131,7 @@ def add_review():
             "message": "This product has already been reviewed by the user.",
         }), 409
 
-    review = Review_db(
+    review = Review(
         user_id=data["user_id"],
         prod_id=data["prod_id"],
         rating=data["rating"],
@@ -161,7 +161,7 @@ def update_review(user_id, prod_id):
     if validation_error:
         return jsonify({"code": 400, "message": validation_error}), 400
 
-    review = Review_db.query.filter_by(
+    review = Review.query.filter_by(
         user_id=user_id,
         prod_id=prod_id,
     ).first()

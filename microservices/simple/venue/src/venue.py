@@ -48,7 +48,7 @@ with app.app_context():
     db.create_all()
 
 @app.route("/api/v1/venues")
-def get_all():
+def get_venues():
     venues = Venue.query.all()
     return jsonify(
         {
@@ -60,7 +60,7 @@ def get_all():
     ), 200
 
 @app.route("/api/v1/venues/<string:venue_id>")
-def find_by_venue_id(venue_id):
+def get_venue(venue_id):
     venue = Venue.query.filter_by(venue_id=venue_id).first()
     if venue:
         return jsonify(

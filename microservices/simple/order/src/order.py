@@ -66,7 +66,7 @@ def _validate_order(data: Any) -> Optional[str]:
     return None
 
 
-class Orders(db.Model):
+class Order(db.Model):
     __tablename__ = 'orders'
     order_id = db.Column(db.String(255), primary_key=True)
     user_id = db.Column(db.String(255), nullable=False)
@@ -99,7 +99,7 @@ class Orders(db.Model):
         }
 
 
-class OrderItems(db.Model):
+class OrderItem(db.Model):
     __tablename__ = 'order_items'
     order_id = db.Column(db.String(255), primary_key=True)
     item_id = db.Column(db.String(255), primary_key=True)
@@ -157,7 +157,7 @@ def get_orders():
             "message": "user_id is required.",
         }), 400
 
-    orders = Orders.query.filter_by(user_id=user_id).all()
+    orders = Order.query.filter_by(user_id=user_id).all()
     order_json = [detail.json() for detail in orders]
     temp_orders = []
     for order in order_json:
@@ -170,7 +170,7 @@ def get_orders():
             "order_items": [],
         }
         order_id = order["order_id"]
-        order_items = OrderItems.query.filter_by(order_id=order_id).all()
+        order_items = OrderItem.query.filter_by(order_id=order_id).all()
 
         order_items_json = [detail.json() for detail in order_items]
 
@@ -205,7 +205,7 @@ def get_orders():
 @app.route("/api/v1/orders/<order_id>", methods=['GET'])
 def get_order(order_id):
     # order_id = request.args.get("order_id")
-    order_record = Orders.query.filter_by(order_id=order_id).first()
+    order_record = Order.query.filter_by(order_id=order_id).first()
     if not order_record:
         return jsonify(
             {
@@ -224,7 +224,7 @@ def get_order(order_id):
         "delivery_address": order["delivery_address"],
         "order_items": [],
     }
-    order_items = OrderItems.query.filter_by(order_id=order_id).all()
+    order_items = OrderItem.query.filter_by(order_id=order_id).all()
     order_items_json = [detail.json() for detail in order_items]
 
     order_venue = OrderVenue.query.filter_by(order_id=order_id).all()
@@ -258,7 +258,7 @@ def create_order():
     if validation_error:
         return jsonify({"code": 400, "message": validation_error}), 400
 
-    if Orders.query.filter_by(order_id=data["order_id"]).first():
+    if Order.query.filter_by(order_id=data["order_id"]).first():
         return jsonify({
             "code": 409,
             "message": "An order with this ID already exists.",
@@ -266,13 +266,13 @@ def create_order():
 
     status = "Accepted"
 
-    order = Orders(order_id=data["order_id"], user_id=data["user_id"], total_amount=data["total_amount"],
+    order = Order(order_id=data["order_id"], user_id=data["user_id"], total_amount=data["total_amount"],
                    order_datetime=data["order_datetime"], order_status=status,
                    delivery_address=data["delivery_address"], delivery_datetime=data["delivery_datetime"])
     db.session.add(order)
 
     for item in data["order_items"]:
-        order_item = OrderItems(order_id=data["order_id"], item_id=item["item_id"],
+        order_item = OrderItem(order_id=data["order_id"], item_id=item["item_id"],
                                 item_quantity=item["item_quantity"],
                                 item_price=item["item_price"])
         db.session.add(order_item)
@@ -316,7 +316,7 @@ def update_order(order_id):
             "message": "Unsupported order status.",
         }), 400
 
-    order = Orders.query.filter_by(order_id=order_id).first()
+    order = Order.query.filter_by(order_id=order_id).first()
     if order:
         order.order_status = data["status"]
         try:

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @app.route('/api/v1/payments', methods=['POST'])
-def stripepay1():
+def create_payment():
     data = request.get_json(silent=True)
     if (not isinstance(data, dict) or not data.get('token')
             or isinstance(data.get('amount'), bool)
@@ -61,7 +61,7 @@ def stripepay1():
 
 
 @app.route('/api/v1/refunds', methods=['POST'])
-def striperefund():
+def create_refund():
     data = request.get_json(silent=True)
     if (not isinstance(data, dict) or not data.get('charge_id')
             or isinstance(data.get('amount'), bool)

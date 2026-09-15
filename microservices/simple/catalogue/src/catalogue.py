@@ -41,7 +41,7 @@ with app.app_context():
     db.create_all()
 
 @app.route("/api/v1/catalogue")
-def get_all():
+def get_catalogue():
     category = request.args.get("category")
     query = Item.query
     if category:
@@ -59,7 +59,7 @@ def get_all():
 
 # get item by id
 @app.route("/api/v1/catalogue/<string:item_id>")
-def find_by_id(item_id):
+def get_item(item_id):
     item = Item.query.filter_by(item_id=item_id).first()
 
     if item:
@@ -78,7 +78,7 @@ def find_by_id(item_id):
     ), 404
 
 @app.route("/api/v1/catalogue/<string:item_id>/rating", methods=['PATCH'])
-def update_rating(item_id):
+def update_item_rating(item_id):
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or "rating" not in data or "review_count" not in data:
         return jsonify({

@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 payment_URL = environ.get('payment_URL') or "http://payment:5008/api/v1/refunds"
-order_URL = environ.get('order_URL') or "http://order:5006/api/v1/orders"
+order_url = environ.get('order_URL') or "http://order:5006/api/v1/orders"
 
 
 @app.route('/api/v1/refunds', methods=["POST"])
@@ -42,20 +42,20 @@ def process_refund(data):
             "message": "Payment provider rejected the refund request.",
         }), refund["code"]
 
-    order = invoke_http(order_URL + "/" + order_id, method="PATCH", json={"status": "Refunded"})
+    order = invoke_http(order_url + "/" + order_id, method="PATCH", json={"status": "Refunded"})
     if order["code"] not in range(200, 300):
         return jsonify({
             "code": order["code"],
             "message": "Order status could not be updated after the refund.",
         }), order["code"]
 
-    sendEmail(order["data"])
+    send_email(order["data"])
     return jsonify({
         "code": 200,
         "message": "Refund processed and notification queued.",
     }), 200
 
-def sendEmail(order_details):
+def send_email(order_details):
     # 3. send order to email microservice
     # Invoke the email microservice
     print('\n-----Sending to email queue-----')
