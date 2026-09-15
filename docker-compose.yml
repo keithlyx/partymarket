@@ -210,6 +210,8 @@ services:
       PAYMENT_URL: "http://payment:5008/api/v1/payments"
       CART_URL: "http://cart:5005/api/v1/carts"
       ORDER_URL: "http://order:5006/api/v1/orders"
+      CATALOGUE_URL: "http://catalogue:5004/api/v1/catalogue"
+      VENUE_URL: "http://venue:5003/api/v1/venues"
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       PYTHONUNBUFFERED: 1

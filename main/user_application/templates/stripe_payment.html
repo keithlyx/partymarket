@@ -52,30 +52,11 @@
         <button id="modal-close">Return</button>
       </div>
     </div>
-  <div id="ghettodata" data-email="{{email}}" data-username="{{username}}" hidden></div>
     <script>
 
-        const cart_deets = {{ cart_cookie | tojson }};
-        const checkout_deets = {{ checkout_cookie | tojson }};
-      const items = [];
-      for (const item of cart_deets["catalogue_cart_details"]){
-        items.push({
-          "item_id":  item[4],
-          "item_quantity": item[2],
-          "item_price": Number(item[3]),
-          "item_name": item[1],
-        })
-      }
-      const venue = [];
-        for (const item of cart_deets["venue_cart_details"]){
-
-            venue.push({
-            "venue_id":  item[3],
-            "venue_datetime": item[4],
-            "venue_price": Number(item[2]),
-            "venue_name": item[0],
-            })
-        }
+      const checkout_deets = {{ checkout_cookie | tojson }};
+      const checkoutUrl = {{ checkout_url | tojson }};
+      const csrfToken = {{ csrf_token() | tojson }};
       // See your keys here: https://dashboard.stripe.com/apikeys
       const stripe = Stripe("{{ config['STRIPE_PUBLIC_KEY'] }}");
       const elements = stripe.elements();
@@ -108,22 +89,16 @@
           // Send the token to your server.
           //   stripeTokenHandler(token);
            const result={
-          "user_id": document.getElementById("ghettodata").dataset.email,
-          "username": document.getElementById("ghettodata").dataset.username,
           "token": token.id,
-          "total_amount": Number(cart_deets["total_amount"]),
           "delivery_address": checkout_deets["delivery_address"],
           "delivery_datetime": checkout_deets["delivery_date"],
-            //rememeber to change this to the datatime instead of date
-          "items": items,
-           }
-           if (venue.length > 0) {
-             result.venue = venue[0];
            }
 
            let response;
            try {
-             response = await axios.post({{ process_order_url|tojson }} + "/api/v1/orders", result);
+             response = await axios.post(checkoutUrl, result, {
+               headers: {"X-CSRFToken": csrfToken},
+             });
            } catch (error) {
              document.getElementById("card-errors").textContent = "The order could not be created. Please try again.";
              return;

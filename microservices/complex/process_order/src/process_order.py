@@ -21,17 +21,16 @@ class OrderItem(TypedDict):
 
 class OrderRequest(TypedDict, total=False):
     user_id: str
-    total_amount: float
     token: str
     delivery_address: str
     delivery_datetime: str
-    items: List[OrderItem]
-    venue: Dict[str, Any]
 
 
 payment_url = environ.get("PAYMENT_URL") or "http://payment:5008/api/v1/payments"
 cart_url = environ.get("CART_URL") or "http://cart:5005/api/v1/carts"
 order_url = environ.get("ORDER_URL") or "http://order:5006/api/v1/orders"
+catalogue_url = environ.get("CATALOGUE_URL") or "http://catalogue:5004/api/v1/catalogue"
+venue_url = environ.get("VENUE_URL") or "http://venue:5003/api/v1/venues"
 
 app = Flask(__name__)
 CORS(app)
@@ -44,11 +43,9 @@ def _validate_order(data: Any) -> Optional[str]:
 
     required_fields = (
         "user_id",
-        "total_amount",
         "token",
         "delivery_address",
         "delivery_datetime",
-        "items",
     )
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
@@ -62,40 +59,6 @@ def _validate_order(data: Any) -> Optional[str]:
         return "delivery_address must be a non-empty string."
     if not isinstance(data["delivery_datetime"], str) or not data["delivery_datetime"].strip():
         return "delivery_datetime must be a non-empty string."
-
-    total_amount = data["total_amount"]
-    try:
-        parsed_total = Decimal(str(total_amount))
-    except (InvalidOperation, ValueError):
-        parsed_total = Decimal("-1")
-    if isinstance(total_amount, bool) or not parsed_total.is_finite() or parsed_total < 0:
-        return "total_amount must be a non-negative number."
-    if parsed_total.as_tuple().exponent < -2:
-        return "total_amount must have at most two decimal places."
-
-    items = data["items"]
-    if not isinstance(items, list):
-        return "items must be a list."
-    for item in items:
-        if not isinstance(item, dict):
-            return "Each order item must be a JSON object."
-        if any(field not in item for field in ("item_id", "item_quantity", "item_price")):
-            return "Each order item must include item_id, item_quantity, and item_price."
-        if not isinstance(item["item_id"], str) or not item["item_id"].strip():
-            return "Each item_id must be a non-empty string."
-        if isinstance(item["item_quantity"], bool) or not isinstance(item["item_quantity"], int) or item["item_quantity"] < 1:
-            return "Each item_quantity must be a positive integer."
-        try:
-            item_price = Decimal(str(item["item_price"]))
-        except (InvalidOperation, ValueError):
-            item_price = Decimal("-1")
-        if isinstance(item["item_price"], bool) or not item_price.is_finite() or item_price < 0 or item_price.as_tuple().exponent < -2:
-            return "Each item_price must be a non-negative number."
-
-    venue = data.get("venue")
-    if venue is not None:
-        if not isinstance(venue, dict) or any(field not in venue for field in ("venue_id", "venue_price", "venue_datetime")):
-            return "venue must include venue_id, venue_price, and venue_datetime."
 
     return None
 
@@ -124,8 +87,110 @@ def create_order():
         }), 500
 
 
+def _build_authoritative_order(order: OrderRequest):
+    """Build an order from cart and catalogue data instead of browser prices."""
+    cart = invoke_http(cart_url + "/" + order["user_id"], method="GET")
+    if cart.get("code") not in range(200, 300):
+        return None, _downstream_error(cart, "Cart could not be retrieved.")
+
+    cart_data = cart.get("data", {})
+    cart_items = cart_data.get("cart_items", [])
+    cart_venues = cart_data.get("cart_venues", [])
+    if not cart_items and not cart_venues:
+        return None, (jsonify({
+            "code": 400,
+            "message": "Cannot create an order from an empty cart.",
+        }), 400)
+
+    total_amount = Decimal("0.00")
+    order_items = []
+    for cart_item in cart_items:
+        item_id = cart_item.get("item_id")
+        quantity = cart_item.get("quantity")
+        if not isinstance(item_id, str) or not item_id.strip() or not isinstance(quantity, int) or quantity < 1:
+            return None, (jsonify({
+                "code": 502,
+                "message": "Cart service returned invalid item data.",
+            }), 502)
+
+        item_response = invoke_http(catalogue_url + "/" + item_id, method="GET")
+        if item_response.get("code") not in range(200, 300):
+            return None, _downstream_error(item_response, "Catalogue data could not be retrieved.")
+
+        item_data = item_response.get("data", {})
+        try:
+            item_price = Decimal(str(item_data["item_price"]))
+        except (KeyError, InvalidOperation, ValueError):
+            return None, (jsonify({
+                "code": 502,
+                "message": "Catalogue service returned invalid price data.",
+            }), 502)
+        if not item_price.is_finite() or item_price < 0 or item_price.as_tuple().exponent < -2:
+            return None, (jsonify({
+                "code": 502,
+                "message": "Catalogue service returned an invalid item price.",
+            }), 502)
+
+        total_amount += item_price * quantity
+        order_items.append({
+            "item_id": item_id,
+            "item_quantity": quantity,
+            "item_price": f"{item_price:.2f}",
+        })
+
+    venue = None
+    if cart_venues:
+        cart_venue = cart_venues[0]
+        venue_id = cart_venue.get("venue_id")
+        venue_datetime = cart_venue.get("datetime")
+        if not isinstance(venue_id, str) or not venue_id.strip() or not isinstance(venue_datetime, str) or not venue_datetime.strip():
+            return None, (jsonify({
+                "code": 502,
+                "message": "Cart service returned invalid venue data.",
+            }), 502)
+
+        venue_response = invoke_http(venue_url + "/" + venue_id, method="GET")
+        if venue_response.get("code") not in range(200, 300):
+            return None, _downstream_error(venue_response, "Venue data could not be retrieved.")
+
+        venue_data = venue_response.get("data", {})
+        try:
+            venue_price = Decimal(str(venue_data["venue_price"]))
+        except (KeyError, InvalidOperation, ValueError):
+            return None, (jsonify({
+                "code": 502,
+                "message": "Venue service returned invalid price data.",
+            }), 502)
+        if not venue_price.is_finite() or venue_price < 0 or venue_price.as_tuple().exponent < -2:
+            return None, (jsonify({
+                "code": 502,
+                "message": "Venue service returned an invalid venue price.",
+            }), 502)
+
+        total_amount += venue_price
+        venue = {
+            "venue_id": venue_id,
+            "venue_price": f"{venue_price:.2f}",
+            "venue_datetime": venue_datetime,
+        }
+
+    return {
+        "user_id": order["user_id"],
+        "total_amount": f"{total_amount:.2f}",
+        "token": order["token"],
+        "delivery_address": order["delivery_address"],
+        "delivery_datetime": order["delivery_datetime"],
+        "items": order_items,
+        **({"venue": venue} if venue else {}),
+    }, None
+
+
 def process_order(order: OrderRequest):
-    amount_cents = int(Decimal(str(order["total_amount"])) * 100)
+    authoritative_order, error_response = _build_authoritative_order(order)
+    if error_response:
+        return error_response
+
+    amount_cents = int(Decimal(authoritative_order["total_amount"]) * 100)
     payment = invoke_http(
         payment_url,
         method="POST",
@@ -142,7 +207,7 @@ def process_order(order: OrderRequest):
             "message": "Payment service returned an incomplete response.",
         }), 502
 
-    order_for_service = dict(order)
+    order_for_service = dict(authoritative_order)
     order_for_service["order_id"] = order_id
     order_for_service["order_datetime"] = datetime.datetime.now().isoformat()
     order_for_service["order_items"] = order_for_service.pop("items")

@@ -19,6 +19,7 @@ CART_URL = app.config['CART_SERVICE_URL']
 REVIEW_URL = app.config['REVIEW_SERVICE_URL']
 PROCESS_REVIEW_URL = app.config['PROCESS_REVIEW_SERVICE_URL']
 VIEW_ORDER_URL = app.config['VIEW_ORDER_SERVICE_URL']
+PROCESS_ORDER_URL = app.config['PROCESS_ORDER_SERVICE_URL']
 
 
 def as_money(value):
@@ -325,13 +326,42 @@ def checkout():
     return render_template("checkout.html", title="Checkout", catalogue_arr=catalogue_arr, venue_arr=venue_arr, total_amount=total_amount)
 
 
+@app.route('/api/v1/checkout', methods=['POST'])
+@login_required
+def create_checkout_order():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"code": 400, "message": "Request payload must be a JSON object."}), 400
+
+    token = data.get("token")
+    delivery_address = data.get("delivery_address")
+    delivery_datetime = data.get("delivery_datetime")
+    if not all(isinstance(value, str) and value.strip() for value in (token, delivery_address, delivery_datetime)):
+        return jsonify({
+            "code": 400,
+            "message": "Payment token, delivery address and delivery date are required.",
+        }), 400
+
+    result = invoke_http(
+        PROCESS_ORDER_URL + "/api/v1/orders",
+        method="POST",
+        json={
+            "user_id": current_user.user_id_email,
+            "token": token,
+            "delivery_address": delivery_address,
+            "delivery_datetime": delivery_datetime,
+        },
+    )
+    return jsonify(result), result.get("code", 502)
+
+
 @app.route('/stripe-payment', methods=['GET', 'POST'])
 @login_required
 def stripe_payment():
-    cart_cookie = get_cart_cookie('cart_details')
     checkout_cookie = get_checkout_cookie('checkout_details')
 
-    return render_template("stripe_payment.html", title="Stripe Payment", cart_cookie=cart_cookie, checkout_cookie=checkout_cookie, email=current_user.user_id_email, username=current_user.name, process_order_url=app.config['PROCESS_ORDER_SERVICE_URL'])
+    return render_template("stripe_payment.html", title="Stripe Payment", checkout_cookie=checkout_cookie,
+                           checkout_url=url_for('create_checkout_order'))
 
 
 

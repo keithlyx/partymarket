@@ -4,11 +4,12 @@ from .conftest import load_module
 def valid_order():
     return {
         "user_id": "user@example.com",
-        "total_amount": "12.34",
         "token": "tok_test",
         "delivery_address": "Address",
         "delivery_datetime": "2026-09-16",
-        "items": [{"item_id": "i01", "item_quantity": 1, "item_price": "12.34"}],
+        # These fields represent a tampered browser payload and must be ignored.
+        "total_amount": "999.99",
+        "items": [{"item_id": "i01", "item_quantity": 1, "item_price": "999.99"}],
     }
 
 
@@ -21,6 +22,10 @@ def test_process_order_converts_decimal_total_to_exact_cents(monkeypatch):
 
     def fake_invoke(url, method="GET", json=None, **kwargs):
         calls.append((url, method, json))
+        if method == "GET" and "/carts/" in url:
+            return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 2}], "cart_venues": []}}
+        if method == "GET" and "/catalogue/" in url:
+            return {"code": 200, "data": {"item_id": "i01", "item_price": "6.17"}}
         if "payments" in url:
             return {"code": 200, "order_id": "ch_123", "receipt_url": "receipt"}
         if method == "DELETE":
@@ -32,7 +37,11 @@ def test_process_order_converts_decimal_total_to_exact_cents(monkeypatch):
 
     response = process_order.app.test_client().post("/api/v1/orders", json=valid_order())
     assert response.status_code == 201
-    assert calls[0][2]["amount_cents"] == 1234
+    payment_payload = next(call[2] for call in calls if call[1] == "POST" and "payments" in call[0])
+    assert payment_payload["amount_cents"] == 1234
+    order_payload = next(call[2] for call in calls if call[1] == "POST" and "/orders" in call[0])
+    assert order_payload["total_amount"] == "12.34"
+    assert order_payload["order_items"][0]["item_price"] == "6.17"
 
 
 def test_process_order_rejects_missing_fields():
