@@ -26,13 +26,22 @@ def create_payment():
         }), 400
 
     token = data['token']
+    idempotency_key = data.get('idempotency_key')
+    if idempotency_key is not None and (not isinstance(idempotency_key, str) or not idempotency_key.strip()):
+        return jsonify({
+            'code': 400,
+            'message': 'idempotency_key must be a non-empty string when provided.'
+        }), 400
     try:
-        charge = stripe.Charge.create(
-        amount=data['amount_cents'],
-        currency="sgd",
-        source=token,
-        description="My First Test Charge (created for API docs at https://www.stripe.com/docs/api)"
-        )
+        charge_options = {
+            'amount': data['amount_cents'],
+            'currency': "sgd",
+            'source': token,
+            'description': "Party Planning Market order payment",
+        }
+        if idempotency_key:
+            charge_options['idempotency_key'] = idempotency_key
+        charge = stripe.Charge.create(**charge_options)
         receipt_url = charge['receipt_url']
         transaction_id = charge['id']
         return jsonify({
@@ -70,11 +79,20 @@ def create_refund():
 
     charge_id = data['charge_id']
     amount_cents = data['amount_cents']
+    idempotency_key = data.get('idempotency_key')
+    if idempotency_key is not None and (not isinstance(idempotency_key, str) or not idempotency_key.strip()):
+        return jsonify({
+            'code': 400,
+            'message': 'idempotency_key must be a non-empty string when provided.'
+        }), 400
     try:
-        refund = stripe.Refund.create(
-        charge = charge_id,
-        amount = amount_cents
-        )
+        refund_options = {
+            'charge': charge_id,
+            'amount': amount_cents,
+        }
+        if idempotency_key:
+            refund_options['idempotency_key'] = idempotency_key
+        refund = stripe.Refund.create(**refund_options)
         return jsonify({
                 'code': 200,
                 'refund_id': refund['id'],

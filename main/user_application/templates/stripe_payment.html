@@ -56,6 +56,7 @@
 
       const checkout_deets = {{ checkout_cookie | tojson }};
       const checkoutUrl = {{ checkout_url | tojson }};
+      const checkoutId = {{ checkout_id | tojson }};
       const csrfToken = {{ csrf_token() | tojson }};
       // See your keys here: https://dashboard.stripe.com/apikeys
       const stripe = Stripe("{{ config['STRIPE_PUBLIC_KEY'] }}");
@@ -90,6 +91,7 @@
           //   stripeTokenHandler(token);
            const result={
           "token": token.id,
+          "checkout_id": checkoutId,
           "delivery_address": checkout_deets["delivery_address"],
           "delivery_datetime": checkout_deets["delivery_date"],
            }

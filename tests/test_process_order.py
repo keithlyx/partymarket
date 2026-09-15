@@ -5,6 +5,7 @@ def valid_order():
     return {
         "user_id": "user@example.com",
         "token": "tok_test",
+        "idempotency_key": "checkout-123",
         "delivery_address": "Address",
         "delivery_datetime": "2026-09-16",
         # These fields represent a tampered browser payload and must be ignored.
@@ -39,9 +40,46 @@ def test_process_order_converts_decimal_total_to_exact_cents(monkeypatch):
     assert response.status_code == 201
     payment_payload = next(call[2] for call in calls if call[1] == "POST" and "payments" in call[0])
     assert payment_payload["amount_cents"] == 1234
+    assert payment_payload["idempotency_key"] == "checkout-123"
     order_payload = next(call[2] for call in calls if call[1] == "POST" and "/orders" in call[0])
     assert order_payload["total_amount"] == "12.34"
     assert order_payload["order_items"][0]["item_price"] == "6.17"
+
+
+def test_process_order_reverses_payment_when_order_storage_fails(monkeypatch):
+    process_order = load_module(
+        "process_order_service_compensation",
+        "microservices/complex/process_order/src/process_order.py",
+    )
+    calls = []
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        calls.append((url, method, json))
+        if method == "GET" and "/carts/" in url:
+            return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 1}], "cart_venues": []}}
+        if method == "GET" and "/catalogue/" in url:
+            return {"code": 200, "data": {"item_price": "12.34"}}
+        if "payments" in url:
+            return {"code": 200, "order_id": "ch_123", "receipt_url": "receipt"}
+        if "refunds" in url:
+            return {"code": 200, "refund_id": "re_123"}
+        return {"code": 500, "message": "storage failed"}
+
+    monkeypatch.setattr(process_order, "invoke_http", fake_invoke)
+    response = process_order.app.test_client().post(
+        "/api/v1/orders",
+        json={
+            "user_id": "user@example.com",
+            "token": "tok_test",
+            "idempotency_key": "checkout-123",
+            "delivery_address": "Address",
+            "delivery_datetime": "2026-09-16",
+        },
+    )
+
+    assert response.status_code == 502
+    refund_call = next(call for call in calls if "refunds" in call[0])
+    assert refund_call[2]["amount_cents"] == 1234
 
 
 def test_process_order_rejects_missing_fields():

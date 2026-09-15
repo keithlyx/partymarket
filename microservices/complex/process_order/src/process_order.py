@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import uuid
 from os import environ
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, TypedDict
@@ -21,6 +22,7 @@ class OrderItem(TypedDict):
 class OrderRequest(TypedDict, total=False):
     user_id: str
     token: str
+    idempotency_key: str
     delivery_address: str
     delivery_datetime: str
 
@@ -28,6 +30,7 @@ class OrderRequest(TypedDict, total=False):
 payment_url = environ.get("PAYMENT_URL") or "http://payment:5008/api/v1/payments"
 cart_url = environ.get("CART_URL") or "http://cart:5005/api/v1/carts"
 order_url = environ.get("ORDER_URL") or "http://order:5006/api/v1/orders"
+refund_url = environ.get("REFUND_URL") or "http://payment:5008/api/v1/refunds"
 catalogue_url = environ.get("CATALOGUE_URL") or "http://catalogue:5004/api/v1/catalogue"
 venue_url = environ.get("VENUE_URL") or "http://venue:5003/api/v1/venues"
 
@@ -57,6 +60,8 @@ def _validate_order(data: Any) -> Optional[str]:
         return "delivery_address must be a non-empty string."
     if not isinstance(data["delivery_datetime"], str) or not data["delivery_datetime"].strip():
         return "delivery_datetime must be a non-empty string."
+    if "idempotency_key" in data and (not isinstance(data["idempotency_key"], str) or not data["idempotency_key"].strip()):
+        return "idempotency_key must be a non-empty string when provided."
 
     return None
 
@@ -189,10 +194,15 @@ def process_order(order: OrderRequest):
         return error_response
 
     amount_cents = int(Decimal(authoritative_order["total_amount"]) * 100)
+    idempotency_key = order.get("idempotency_key") or uuid.uuid4().hex
     payment = invoke_http(
         payment_url,
         method="POST",
-        json={"token": order["token"], "amount_cents": amount_cents},
+        json={
+            "token": order["token"],
+            "amount_cents": amount_cents,
+            "idempotency_key": idempotency_key,
+        },
     )
     if payment.get("code") not in range(200, 300):
         return _downstream_error(payment, "Payment could not be completed.")
@@ -211,9 +221,31 @@ def process_order(order: OrderRequest):
     order_for_service["order_items"] = order_for_service.pop("items")
     order_for_service["receipt_url"] = receipt_url
     order_for_service.pop("token", None)
+    order_for_service.pop("idempotency_key", None)
 
     result = invoke_http(order_url, method="POST", json=order_for_service)
     if result.get("code") not in range(200, 300):
+        if result.get("code") == 409:
+            return jsonify({
+                "code": 200,
+                "message": "Order was already created.",
+                "order_id": order_id,
+            }), 200
+
+        compensation = invoke_http(
+            refund_url,
+            method="POST",
+            json={
+                "charge_id": order_id,
+                "amount_cents": amount_cents,
+                "idempotency_key": idempotency_key + ":compensation",
+            },
+        )
+        if compensation.get("code") not in range(200, 300):
+            return jsonify({
+                "code": 502,
+                "message": "Order could not be stored and payment could not be reversed.",
+            }), 502
         return _downstream_error(result, "Order could not be stored.")
 
     notification_queued = True

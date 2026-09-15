@@ -1,4 +1,5 @@
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
 from flask import abort, render_template, url_for, flash, redirect, request, jsonify, make_response
 import json
@@ -350,9 +351,10 @@ def create_checkout_order():
         return jsonify({"code": 400, "message": "Request payload must be a JSON object."}), 400
 
     token = data.get("token")
+    checkout_id = data.get("checkout_id")
     delivery_address = data.get("delivery_address")
     delivery_datetime = data.get("delivery_datetime")
-    if not all(isinstance(value, str) and value.strip() for value in (token, delivery_address, delivery_datetime)):
+    if not all(isinstance(value, str) and value.strip() for value in (token, checkout_id, delivery_address, delivery_datetime)):
         return jsonify({
             "code": 400,
             "message": "Payment token, delivery address and delivery date are required.",
@@ -364,6 +366,7 @@ def create_checkout_order():
         json={
             "user_id": current_user.user_id_email,
             "token": token,
+            "idempotency_key": checkout_id,
             "delivery_address": delivery_address,
             "delivery_datetime": delivery_datetime,
         },
@@ -377,7 +380,7 @@ def stripe_payment():
     checkout_cookie = get_checkout_cookie('checkout_details')
 
     return render_template("stripe_payment.html", title="Stripe Payment", checkout_cookie=checkout_cookie,
-                           checkout_url=url_for('create_checkout_order'))
+                           checkout_url=url_for('create_checkout_order'), checkout_id=uuid4().hex)
 
 
 
