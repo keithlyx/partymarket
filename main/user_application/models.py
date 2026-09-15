@@ -22,6 +22,3 @@ class Users(db.Model, UserMixin):
         return f"Users('{self.username}', '{self.email}')"
 
 
-with app.app_context():
-  # call your method here
-    db.create_all()

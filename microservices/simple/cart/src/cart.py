@@ -6,7 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cart.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["CART_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -51,10 +51,6 @@ class CartVenue(db.Model):
             "venue_id": self.venue_id,
             "datetime": self.datetime,
         }
-
-
-with app.app_context():
-    db.create_all()
 
 
 @app.route("/api/v1/carts/<user_id>/products/<prod_id>", methods=["POST"])

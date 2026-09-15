@@ -1,4 +1,5 @@
 from os import environ
+from decimal import Decimal, InvalidOperation
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -6,7 +7,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///orders.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["ORDER_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
 
@@ -50,7 +51,11 @@ def _validate_order(data: Any) -> Optional[str]:
     for field in ("order_id", "user_id", "order_datetime", "delivery_address", "delivery_datetime"):
         if not isinstance(data[field], str) or not data[field].strip():
             return field + " must be a non-empty string."
-    if isinstance(data["total_amount"], bool) or not isinstance(data["total_amount"], (int, float)) or data["total_amount"] < 0:
+    try:
+        total_amount = Decimal(str(data["total_amount"]))
+    except (InvalidOperation, ValueError):
+        total_amount = Decimal("-1")
+    if isinstance(data["total_amount"], bool) or not total_amount.is_finite() or total_amount < 0 or total_amount.as_tuple().exponent < -2:
         return "total_amount must be a non-negative number."
     if not isinstance(data["order_items"], list):
         return "order_items must be a list."
@@ -61,7 +66,11 @@ def _validate_order(data: Any) -> Optional[str]:
             return "Each item_id must be a non-empty string."
         if isinstance(item["item_quantity"], bool) or not isinstance(item["item_quantity"], int) or item["item_quantity"] < 1:
             return "Each item_quantity must be a positive integer."
-        if isinstance(item["item_price"], bool) or not isinstance(item["item_price"], (int, float)) or item["item_price"] < 0:
+        try:
+            item_price = Decimal(str(item["item_price"]))
+        except (InvalidOperation, ValueError):
+            item_price = Decimal("-1")
+        if isinstance(item["item_price"], bool) or not item_price.is_finite() or item_price < 0 or item_price.as_tuple().exponent < -2:
             return "Each item_price must be a non-negative number."
     return None
 
@@ -70,7 +79,7 @@ class Order(db.Model):
     __tablename__ = 'orders'
     order_id = db.Column(db.String(255), primary_key=True)
     user_id = db.Column(db.String(255), nullable=False)
-    total_amount = db.Column(db.Float(precision=2), nullable=False)
+    total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     order_datetime = db.Column(db.String(255), nullable=False)
     order_status = db.Column(db.String(255), nullable=False)
     delivery_address = db.Column(db.String(255), nullable=False)
@@ -90,7 +99,7 @@ class Order(db.Model):
         return {
             "order_id": self.order_id,
             "user_id": self.user_id,
-            "total_amount": self.total_amount,
+            "total_amount": f"{self.total_amount:.2f}",
             "order_datetime": self.order_datetime,
             "order_status": self.order_status,
             "delivery_address": self.delivery_address,
@@ -104,7 +113,7 @@ class OrderItem(db.Model):
     order_id = db.Column(db.String(255), primary_key=True)
     item_id = db.Column(db.String(255), primary_key=True)
     item_quantity = db.Column(db.Integer, nullable=False)
-    item_price = db.Column(db.Float(precision=2), nullable=False)
+    item_price = db.Column(db.Numeric(10, 2), nullable=False)
 
     def __init__(self, order_id, item_id, item_quantity, item_price):
         self.order_id = order_id
@@ -117,7 +126,7 @@ class OrderItem(db.Model):
             "order_id": self.order_id,
             "item_id": self.item_id,
             "item_quantity": self.item_quantity,
-            "item_price": self.item_price
+            "item_price": f"{self.item_price:.2f}"
         }
 
 
@@ -125,7 +134,7 @@ class OrderVenue(db.Model):
     __tablename__ = 'order_venue'
     order_id = db.Column(db.String(255), primary_key=True)
     venue_id = db.Column(db.String(255), primary_key=True)
-    venue_price = db.Column(db.Float(precision=2), nullable=False)
+    venue_price = db.Column(db.Numeric(10, 2), nullable=False)
     venue_datetime = db.Column(db.String(255), nullable=False)
 
     def __init__(self, order_id, venue_id, venue_price, venue_datetime):
@@ -138,14 +147,9 @@ class OrderVenue(db.Model):
         return {
             "order_id": self.order_id,
             "venue_id": self.venue_id,
-            "venue_price": self.venue_price,
+            "venue_price": f"{self.venue_price:.2f}",
             "venue_datetime": self.venue_datetime
         }
-
-
-with app.app_context():
-    # call your method here
-    db.create_all()
 
 
 @app.route("/api/v1/orders", methods=['GET'])

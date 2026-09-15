@@ -4,8 +4,7 @@ from flask_cors import CORS
 from os import environ
 
 app = Flask(__name__)
-# app.config['SQLALCHEMY_DATABASE_URI'] = environ.get('catalogue_dbURL') or 'mysql+mysqlconnector://root@localhost:3306/catalogue'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///catalogue.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["CATALOGUE_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -17,7 +16,7 @@ class Item(db.Model):
     item_id = db.Column(db.String, primary_key=True)
     category_name = db.Column(db.String(100), nullable=False)
     item_name = db.Column(db.String(100), nullable=False)
-    item_price = db.Column(db.Float(precision=2), nullable=False)
+    item_price = db.Column(db.Numeric(10, 2), nullable=False)
     item_img = db.Column(db.String(1000), nullable=False)
     item_description = db.Column(db.String(1000), nullable=False)
     item_rating = db.Column(db.Float(precision=2), nullable=False)
@@ -34,11 +33,7 @@ class Item(db.Model):
         self.review_count = review_count
 
     def json(self):
-        return {"item_id": self.item_id, "category_name": self.category_name, "item_name" : self.item_name, "item_price" : self.item_price, "item_img" : self.item_img, "item_description": self.item_description, "item_rating" : self.item_rating, "review_count" : self.review_count}
-
-with app.app_context():
-  # call your method here
-    db.create_all()
+        return {"item_id": self.item_id, "category_name": self.category_name, "item_name": self.item_name, "item_price": f"{self.item_price:.2f}", "item_img": self.item_img, "item_description": self.item_description, "item_rating": self.item_rating, "review_count": self.review_count}
 
 @app.route("/api/v1/catalogue")
 def get_catalogue():

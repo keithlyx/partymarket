@@ -1,12 +1,34 @@
-version: "3.8"
-
 networks:
   my-networks:
 
 volumes:
   rabbitmq_data:
+  mysql_data:
 
 services:
+
+  ###############################################
+  # MySQL: one local server with one schema per service
+  ###############################################
+  database:
+    image: mysql:8.0
+    container_name: partymarket-database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-partymarket}"
+      MYSQL_ROOT_HOST: "%"
+    networks:
+      - my-networks
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./databases:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   ###############################################
   ####################################
@@ -38,6 +60,11 @@ services:
     ports:
       - "5003:5003"
     restart: always
+    environment:
+      VENUE_DATABASE_URL: "${VENUE_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/venue}"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -53,6 +80,11 @@ services:
     ports:
       - "5004:5004"
     restart: always
+    environment:
+      CATALOGUE_DATABASE_URL: "${CATALOGUE_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/catalogue}"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -68,6 +100,11 @@ services:
     ports:
       - "5007:5007"
     restart: always
+    environment:
+      REVIEW_DATABASE_URL: "${REVIEW_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/reviews}"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -102,6 +139,11 @@ services:
     ports:
       - "5006:5006"
     restart: always
+    environment:
+      ORDER_DATABASE_URL: "${ORDER_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/orders}"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -117,6 +159,11 @@ services:
     ports:
       - "5005:5005"
     restart: always
+    environment:
+      CART_DATABASE_URL: "${CART_DATABASE_URL:-mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD:-partymarket}@database:3306/cart}"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################

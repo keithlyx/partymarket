@@ -6,8 +6,7 @@ from os import environ
 
 
 app = Flask(__name__)
-# app.config['SQLALCHEMY_DATABASE_URI'] = environ.get('venue_dbURL') or 'mysql+mysqlconnector://root@localhost:3306/venue'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///venue.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["VENUE_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -20,7 +19,7 @@ class Venue(db.Model):
     venue_name = db.Column(db.String, nullable=False)
     venue_img = db.Column(db.String, nullable=False)
     venue_description = db.Column(db.String, nullable=False)
-    venue_price = db.Column(db.Float(precision=2), nullable=False)
+    venue_price = db.Column(db.Numeric(10, 2), nullable=False)
     venue_rating = db.Column(db.Float(precision=2), nullable=False)
     review_count = db.Column(db.Integer, nullable=False)
     address = db.Column(db.String, nullable=False)
@@ -37,15 +36,10 @@ class Venue(db.Model):
         self.address = address
 
     def json(self):
-        print(self.address)
         return {"venue_id": self.venue_id, "venue_name": self.venue_name,
                 "venue_img": self.venue_img, "venue_description": self.venue_description,
-                "venue_price": self.venue_price, "venue_rating": self.venue_rating,
+                "venue_price": f"{self.venue_price:.2f}", "venue_rating": self.venue_rating,
                 "review_count": self.review_count, "address": self.address}
-
-with app.app_context():
-  # call your method here
-    db.create_all()
 
 @app.route("/api/v1/venues")
 def get_venues():

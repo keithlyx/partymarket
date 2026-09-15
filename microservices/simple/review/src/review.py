@@ -8,7 +8,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///review.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["REVIEW_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -65,10 +65,6 @@ class Review(db.Model):
             "rating_desc": self.rating_desc,
             "created_date": self.created_date,
         }
-
-
-with app.app_context():
-    db.create_all()
 
 
 @app.route("/api/v1/reviews", methods=["GET"])

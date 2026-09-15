@@ -10,7 +10,7 @@ csrf = CSRFProtect(app)
 
 
 app.config['SECRET_KEY'] = environ.get('FLASK_SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["USER_DATABASE_URL"]
 app.config['STRIPE_PUBLIC_KEY'] = environ.get('STRIPE_PUBLIC_KEY', '')
 
 db = SQLAlchemy(app)  # database instance

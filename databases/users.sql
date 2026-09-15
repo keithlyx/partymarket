@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS  users (
     user_id_email VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255),
     phone VARCHAR(255),
-    password VARCHAR(255)
+    password VARCHAR(255),
+    role VARCHAR(20) DEFAULT 'user'
 );
 
