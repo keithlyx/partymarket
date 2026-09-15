@@ -191,6 +191,7 @@ services:
       RABBITMQ_PORT: 5672
       SENDGRID_API_KEY: "${SENDGRID_API_KEY}"
       SENDGRID_FROM_EMAIL: "${SENDGRID_FROM_EMAIL}"
+      MAX_EMAIL_RETRIES: "${MAX_EMAIL_RETRIES:-3}"
 
 
   ###############################################

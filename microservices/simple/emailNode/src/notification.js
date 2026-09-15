@@ -3,10 +3,15 @@ const path = require('path');
 const sgMail = require('@sendgrid/mail');
 const amqp_setup = require('./amqp_setup');
 const { isNonEmptyString, validateMessage } = require('./notification_validation');
+const { nextRetryCount } = require('./retry_policy');
 const process = require('process');
 const monitorBindingKey = '*.email';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
+const configuredMaxRetries = Number.parseInt(process.env.MAX_EMAIL_RETRIES || '3', 10);
+const MAX_EMAIL_RETRIES = Number.isInteger(configuredMaxRetries) && configuredMaxRetries >= 0
+  ? configuredMaxRetries
+  : 3;
 
 function escapeHtml(value) {
   const entities = {
@@ -39,8 +44,18 @@ async function receiveConfirmation() {
           channel.nack(msg, false, false);
         }
       } catch (err) {
-        console.error('Email delivery failed; message will be retried:', err.message);
-        channel.nack(msg, false, true);
+        const headers = msg.properties && msg.properties.headers ? msg.properties.headers : {};
+        const retryCount = nextRetryCount(headers, MAX_EMAIL_RETRIES);
+        if (retryCount !== null) {
+          channel.sendToQueue(queueName, msg.content, {
+            persistent: true,
+            headers: { ...headers, 'x-retry-count': retryCount },
+          });
+          console.error(`Email delivery failed; retry ${retryCount}/${MAX_EMAIL_RETRIES}:`, err.message);
+        } else {
+          console.error('Email delivery failed; retry limit reached:', err.message);
+        }
+        channel.nack(msg, false, false);
       }
     }, { noAck: false });
   } catch (err) {
