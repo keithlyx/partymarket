@@ -97,8 +97,18 @@ def _build_authoritative_order(order: OrderRequest):
         return None, _downstream_error(cart, "Cart could not be retrieved.")
 
     cart_data = cart.get("data", {})
+    if not isinstance(cart_data, dict):
+        return None, (jsonify({
+            "code": 502,
+            "message": "Cart service returned invalid data.",
+        }), 502)
     cart_items = cart_data.get("cart_items", [])
     cart_venues = cart_data.get("cart_venues", [])
+    if not isinstance(cart_items, list) or not isinstance(cart_venues, list):
+        return None, (jsonify({
+            "code": 502,
+            "message": "Cart service returned invalid data.",
+        }), 502)
     if not cart_items and not cart_venues:
         return None, (jsonify({
             "code": 400,
@@ -121,6 +131,11 @@ def _build_authoritative_order(order: OrderRequest):
             return None, _downstream_error(item_response, "Catalogue data could not be retrieved.")
 
         item_data = item_response.get("data", {})
+        if not isinstance(item_data, dict):
+            return None, (jsonify({
+                "code": 502,
+                "message": "Catalogue service returned invalid item data.",
+            }), 502)
         try:
             item_price = Decimal(str(item_data["item_price"]))
         except (KeyError, InvalidOperation, ValueError):
@@ -137,6 +152,7 @@ def _build_authoritative_order(order: OrderRequest):
         total_amount += item_price * quantity
         order_items.append({
             "item_id": item_id,
+            "item_name": item_data.get("item_name", item_id),
             "item_quantity": quantity,
             "item_price": f"{item_price:.2f}",
         })
@@ -157,6 +173,11 @@ def _build_authoritative_order(order: OrderRequest):
             return None, _downstream_error(venue_response, "Venue data could not be retrieved.")
 
         venue_data = venue_response.get("data", {})
+        if not isinstance(venue_data, dict):
+            return None, (jsonify({
+                "code": 502,
+                "message": "Venue service returned invalid venue data.",
+            }), 502)
         try:
             venue_price = Decimal(str(venue_data["venue_price"]))
         except (KeyError, InvalidOperation, ValueError):
@@ -173,6 +194,7 @@ def _build_authoritative_order(order: OrderRequest):
         total_amount += venue_price
         venue = {
             "venue_id": venue_id,
+            "venue_name": venue_data.get("venue_name", venue_id),
             "venue_price": f"{venue_price:.2f}",
             "venue_datetime": venue_datetime,
         }

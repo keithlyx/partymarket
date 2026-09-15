@@ -31,7 +31,10 @@ def get_checkout_cookie(cookie_name):
 
     checkout_cookie = request.cookies.get(cookie_name)
     if checkout_cookie:
-        checkout_dict = json.loads(checkout_cookie)
+        try:
+            checkout_dict = json.loads(checkout_cookie)
+        except (TypeError, ValueError):
+            checkout_dict = {}
 
     return checkout_dict
 
@@ -41,6 +44,9 @@ def get_cart_cookie(cookie_name):
 
     cart_cookie = request.cookies.get(cookie_name)
     if cart_cookie:
-        cart_dict = json.loads(cart_cookie)
+        try:
+            cart_dict = json.loads(cart_cookie)
+        except (TypeError, ValueError):
+            cart_dict = {}
 
     return cart_dict

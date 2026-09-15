@@ -26,7 +26,7 @@ def test_process_order_converts_decimal_total_to_exact_cents(monkeypatch):
         if method == "GET" and "/carts/" in url:
             return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 2}], "cart_venues": []}}
         if method == "GET" and "/catalogue/" in url:
-            return {"code": 200, "data": {"item_id": "i01", "item_price": "6.17"}}
+            return {"code": 200, "data": {"item_id": "i01", "item_name": "Chicken rice", "item_price": "6.17"}}
         if "payments" in url:
             return {"code": 200, "order_id": "ch_123", "receipt_url": "receipt"}
         if method == "DELETE":
@@ -43,6 +43,7 @@ def test_process_order_converts_decimal_total_to_exact_cents(monkeypatch):
     assert payment_payload["idempotency_key"] == "checkout-123"
     order_payload = next(call[2] for call in calls if call[1] == "POST" and "/orders" in call[0])
     assert order_payload["total_amount"] == "12.34"
+    assert order_payload["order_items"][0]["item_name"] == "Chicken rice"
     assert order_payload["order_items"][0]["item_price"] == "6.17"
 
 

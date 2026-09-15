@@ -46,6 +46,11 @@ def refund():
             "code": 409,
             "message": "This order has already been refunded.",
         }), 409
+    if order.get("order_status") != "Accepted":
+        return jsonify({
+            "code": 409,
+            "message": "This order is not eligible for a refund.",
+        }), 409
 
     try:
         amount = Decimal(str(order["total_amount"]))
@@ -61,7 +66,6 @@ def refund():
         }), 502
 
     data["amount_cents"] = int(amount * 100)
-    data["order"] = order
     return process_refund(data)
 
 

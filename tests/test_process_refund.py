@@ -57,3 +57,26 @@ def test_refund_rejects_a_different_owner(monkeypatch):
     )
 
     assert response.status_code == 403
+
+
+def test_refund_rejects_orders_that_are_not_accepted(monkeypatch):
+    process_refund = load_module(
+        "process_refund_service_status",
+        "microservices/complex/process_refund/src/process_refund.py",
+    )
+    monkeypatch.setattr(process_refund, "invoke_http", lambda *args, **kwargs: {
+        "code": 200,
+        "order": {
+            "order_id": "ch_123",
+            "user_id": "user@example.com",
+            "total_amount": "12.34",
+            "order_status": "Delivered",
+        },
+    })
+
+    response = process_refund.app.test_client().post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+
+    assert response.status_code == 409
