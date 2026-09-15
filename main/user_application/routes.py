@@ -307,7 +307,7 @@ def add_review(prod_id):
             print(type(review_data))
 
             # call add_review microservice
-            response = invoke_http(f'http://localhost:5400/api/v1/review/add_review/{user_id}/{prod_id}', method='POST', json=json.dumps(review_data))
+            response = invoke_http(f'http://localhost:5400/api/v1/review/add_review/{user_id}/{prod_id}', method='POST', json=review_data)
             print(response)
             if prod_id[0] == "i":
                 if response['code'] in range(200, 401):

@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from os import environ
 from datetime import datetime
-import json
 
 app = Flask(__name__)
 # app.config['SQLALCHEMY_DATABASE_URI'] = environ.get('review_dbURL') or 'mysql+mysqlconnector://root@localhost:3306/review'
@@ -123,8 +122,7 @@ def add_review(user_id, prod_id):
 
     else:
         if request.is_json:
-            review_str = request.get_json()
-            review_json = json.loads(review_str)
+            review_json = request.get_json()
             print(type(review_json))
             print(f'=================review_json: {review_json} =================')
             print(user_id, prod_id, review_json["rating"], review_json["rating_desc"])

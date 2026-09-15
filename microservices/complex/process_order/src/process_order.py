@@ -74,7 +74,7 @@ def processOrder(order):
     del order["token"]
     print("\nOrder to be sent to order microservice: ", order_id)
     #submit order
-    result = invoke_http(order_URL, method='POST', json=json.dumps(order))
+    result = invoke_http(order_URL, method='POST', json=order)
     if result["code"] not in range(200, 300):
         return jsonify({    
             "code": result["code"],

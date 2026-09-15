@@ -2,7 +2,6 @@ from os import environ
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import json
 
 app = Flask(__name__)
 
@@ -206,14 +205,11 @@ def get_order(order_id):
 @app.route("/api/v1/create_order", methods=['POST'])
 def create_order():
     data = request.get_json()
-    data = json.loads(data)
-    print(data)
     status = "Accepted"
 
     order = Orders(order_id=data["order_id"], user_id=data["user_id"], total_amount=data["total_amount"],
                    order_datetime=data["order_datetime"], order_status=status,
                    delivery_address=data["delivery_address"], delivery_datetime=data["delivery_datetime"])
-    print(data)
     db.session.add(order)
 
     for item in data["order_items"]:

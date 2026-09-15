@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from os import environ,path
 from invokes import invoke_http
-import json
 
 app = Flask(__name__)   
 CORS(app)
@@ -15,10 +14,9 @@ review_URL = environ.get('review_URL') or "http://review:5007/api/v1"
 def add_review(user_id, prod_id):
     print("=================process_review.py add_review called! =================")
     if request.is_json:
-        review_str = request.get_json()
-        review_json = json.loads(review_str)
+        review_json = request.get_json()
         print("updating review for user_id: " + user_id + " and prod_id: " + prod_id)
-        review_response = invoke_http(review_URL + "/review/add_review/" + user_id + "/" + prod_id, method='POST', json=json.dumps(review_json))
+        review_response = invoke_http(review_URL + "/review/add_review/" + user_id + "/" + prod_id, method='POST', json=review_json)
         print(review_response["message"])
         if review_response["code"] not in range(200, 300):
             return jsonify({
