@@ -11,14 +11,13 @@
       const chargeId = '';
       refundBtn.addEventListener('click', async (event) => {
         event.preventDefault();
-        try{
-          const response = await axios.post("http://localhost:5700/api/v1/refunds", {
+        try {
+          await axios.post({{ refund_service_url|tojson }} + "/api/v1/refunds", {
             order_id: chargeId
-          })
-            console.log(response);
-          } catch (error) {
-            console.log(error);
-          }
+          });
+        } catch (error) {
+          refundBtn.disabled = false;
+        }
         
       });
     </script>

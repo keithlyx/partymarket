@@ -52,18 +52,13 @@
         <button id="modal-close">Return</button>
       </div>
     </div>
-  <div id="ghettodata" data-cart="{{ cart_cookie }}" data-checkout=" {{ checkout_cookie }}" data-email="{{email}}" data-username="{{username}}"hidden></div>
+  <div id="ghettodata" data-email="{{email}}" data-username="{{username}}" hidden></div>
     <script>
 
-        var cart_deets = {{ cart_cookie | safe }};
-        var checkout_deets = {{ checkout_cookie | safe }};
-      // var cart_deets = JSON.parse(document.getElementById("ghettodata").dataset.cart.replace(/'/g, '"'));
-      // var checkout_deets = JSON.parse(document.getElementById("ghettodata").dataset.checkout.replace(/'/g, '"'))
-
-      console.log(checkout_deets)
-      var username = document.getElementById("ghettodata").dataset.username
-      var items = []
-      for (item of cart_deets["catalogue_cart_details"]){
+        const cart_deets = {{ cart_cookie | tojson }};
+        const checkout_deets = {{ checkout_cookie | tojson }};
+      const items = [];
+      for (const item of cart_deets["catalogue_cart_details"]){
         items.push({
           "item_id":  item[4],
           "item_quantity": item[2],
@@ -71,17 +66,16 @@
           "item_name": item[1],
         })
       }
-      var venue = []
-        for (item of cart_deets["venue_cart_details"]){
+      const venue = [];
+        for (const item of cart_deets["venue_cart_details"]){
 
             venue.push({
             "venue_id":  item[3],
-            "venue_datetime": item[1],
+            "venue_datetime": item[4],
             "venue_price": Number(item[2]),
             "venue_name": item[0],
             })
         }
-      console.log(venue)
       // See your keys here: https://dashboard.stripe.com/apikeys
       const stripe = Stripe("{{ config['STRIPE_PUBLIC_KEY'] }}");
       const elements = stripe.elements();
@@ -113,7 +107,7 @@
 
           // Send the token to your server.
           //   stripeTokenHandler(token);
-          var result={
+           const result={
           "user_id": document.getElementById("ghettodata").dataset.email,
           "username": document.getElementById("ghettodata").dataset.username,
           "token": token.id,
@@ -122,33 +116,31 @@
           "delivery_datetime": checkout_deets["delivery_date"],
             //rememeber to change this to the datatime instead of date
           "items": items,
-          "venue": venue[0],
-          }
-          try{
-          var response = await axios.post("http://localhost:5200/api/v1/orders", result);
-            console.log(response);
+           }
+           if (venue.length > 0) {
+             result.venue = venue[0];
+           }
 
-          } catch (error) {
-            console.log("error found");
-            console.log(error);
-          }
+           let response;
+           try {
+             response = await axios.post({{ process_order_url|tojson }} + "/api/v1/orders", result);
+           } catch (error) {
+             document.getElementById("card-errors").textContent = "The order could not be created. Please try again.";
+             return;
+           }
 
-          if (response['data']['code'] == 201){
-            const modalTrigger = document.getElementById('modal-trigger');
-            const modalContainer = document.getElementById('modal-container');
-            const modalClose = document.getElementById('modal-close');
+           if (response.data.code == 201){
+             const modalContainer = document.getElementById('modal-container');
+             const modalClose = document.getElementById('modal-close');
             modalContainer.style.display = 'block';
 
-            // Open modal when trigger is clicked
-            // modalTrigger.addEventListener('click', () => {
-            //   modalContainer.style.display = 'block';
-            // });
-
-            // Close modal when close button is clicked
-            modalClose.addEventListener('click', () => {
-              window.location.href = 'http://127.0.0.1:5902/order-logs/' + response['data']['order_id'];
-            });
-          }
+             // Close modal when close button is clicked
+             modalClose.addEventListener('click', () => {
+               window.location.href = '/order-logs/' + response.data.order_id;
+             });
+           } else {
+             document.getElementById("card-errors").textContent = response.data.message || "The order could not be created.";
+           }
         }
       });
 

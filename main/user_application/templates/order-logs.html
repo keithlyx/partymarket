@@ -51,7 +51,7 @@
                       class="btn-refund btn btn-outline-danger"
                       id="{{values['order_id']}}"
                       data-totalamount="{{values['total_amount']}}"
-                      onClick="reply_click(this)"
+                       onClick="reply_click(this); return false;"
                     >
                       Cancel
                     </button>
@@ -80,21 +80,15 @@
 
 <script>
   function reply_click(clicked_btn) {
+    clicked_btn.disabled = true;
     var orderId = clicked_btn.id;
     var amount = Number(clicked_btn.getAttribute("data-totalamount"));
 
-    var refundBtn = document.getElementById(orderId);
-
-    refundBtn.addEventListener("click", async (event) => {
-      event.preventDefault();
-      try {
-        const response = await axios.post("http://localhost:5700/api/v1/refunds", {
-          order_id: orderId,
-          amount,
-        });
-      } catch (error) {
-        console.log(error);
-      }
+    axios.post({{ refund_service_url|tojson }} + "/api/v1/refunds", {
+      order_id: orderId,
+      amount,
+    }).catch(() => {
+      clicked_btn.disabled = false;
     });
   }
 </script>
