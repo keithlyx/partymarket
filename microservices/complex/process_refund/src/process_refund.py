@@ -22,23 +22,48 @@ def refund():
     data = request.get_json(silent=True)
     if (not isinstance(data, dict) or not isinstance(data.get("order_id"), str)
             or not data["order_id"].strip()
-            or isinstance(data.get("amount"), bool)):
+            or not isinstance(data.get("user_id"), str)
+            or not data["user_id"].strip()):
         return jsonify({
             "code": 400,
-            "message": "Request must include order_id and amount.",
+            "message": "Request must include order_id and user_id.",
         }), 400
+
+    order_response = invoke_http(order_url + "/" + data["order_id"], method="GET")
+    if order_response.get("code") not in range(200, 300):
+        return jsonify({
+            "code": order_response.get("code", 502),
+            "message": "Order could not be retrieved.",
+        }), order_response.get("code", 502)
+
+    order = order_response.get("order")
+    if not isinstance(order, dict) or order.get("user_id") != data["user_id"]:
+        return jsonify({
+            "code": 403,
+            "message": "You are not allowed to refund this order.",
+        }), 403
+
+    if order.get("order_status") == "Refunded":
+        return jsonify({
+            "code": 409,
+            "message": "This order has already been refunded.",
+        }), 409
 
     try:
-        amount = Decimal(str(data["amount"]))
-    except (InvalidOperation, ValueError):
-        amount = Decimal("-1")
+        amount = Decimal(str(order["total_amount"]))
+    except (KeyError, InvalidOperation, ValueError):
+        return jsonify({
+            "code": 502,
+            "message": "Order service returned an invalid order amount.",
+        }), 502
     if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
         return jsonify({
-            "code": 400,
-            "message": "amount must be a positive value with at most two decimal places.",
-        }), 400
+            "code": 502,
+            "message": "Order service returned an invalid order amount.",
+        }), 502
 
     data["amount_cents"] = int(amount * 100)
+    data["order"] = order
     return process_refund(data)
 
 
@@ -54,16 +79,16 @@ def process_refund(data):
             "message": "Payment provider rejected the refund request.",
         }), refund["code"]
 
-    order = invoke_http(order_url + "/" + order_id, method="PATCH", json={"status": "Refunded"})
-    if order["code"] not in range(200, 300):
+    updated_order = invoke_http(order_url + "/" + order_id, method="PATCH", json={"status": "Refunded"})
+    if updated_order["code"] not in range(200, 300):
         return jsonify({
-            "code": order["code"],
+            "code": updated_order["code"],
             "message": "Order status could not be updated after the refund.",
-        }), order["code"]
+        }), updated_order["code"]
 
     notification_queued = True
     try:
-        send_email(order["data"])
+        send_email(updated_order["data"])
     except Exception:
         logger.exception("Refund notification could not be queued")
         notification_queued = False

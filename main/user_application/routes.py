@@ -20,6 +20,7 @@ REVIEW_URL = app.config['REVIEW_SERVICE_URL']
 PROCESS_REVIEW_URL = app.config['PROCESS_REVIEW_SERVICE_URL']
 VIEW_ORDER_URL = app.config['VIEW_ORDER_SERVICE_URL']
 PROCESS_ORDER_URL = app.config['PROCESS_ORDER_SERVICE_URL']
+REFUND_URL = app.config['REFUND_SERVICE_URL']
 
 
 def as_money(value):
@@ -232,7 +233,22 @@ def order_logs():
             flash("No orders found!", "info")
             return redirect(url_for('cart'))
 
-    return render_template("order-logs.html", title="Order Logs", order_details=order_details, refund_service_url=app.config['REFUND_SERVICE_URL'])
+    return render_template("order-logs.html", title="Order Logs", order_details=order_details)
+
+
+@app.route('/api/v1/refunds', methods=['POST'])
+@login_required
+def create_refund():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("order_id"), str) or not data["order_id"].strip():
+        return jsonify({"code": 400, "message": "order_id is required."}), 400
+
+    result = invoke_http(
+        REFUND_URL + "/api/v1/refunds",
+        method="POST",
+        json={"order_id": data["order_id"], "user_id": current_user.user_id_email},
+    )
+    return jsonify(result), result.get("code", 502)
 
 
 # order details view

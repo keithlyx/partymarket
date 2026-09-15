@@ -41,8 +41,6 @@
                   <td class="total-amount" data-total-amount="{{ values['total_amount'] }}">
                     ${{values["total_amount"]}}
                   </td>
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-
                   <td>
                     <!-- check the order status to disable it -->
                     {% if values['order_status']!= "Delivered" %}
@@ -50,7 +48,6 @@
                     <button
                       class="btn-refund btn btn-outline-danger"
                       id="{{values['order_id']}}"
-                      data-totalamount="{{values['total_amount']}}"
                        onClick="reply_click(this); return false;"
                     >
                       Cancel
@@ -79,14 +76,15 @@
 </main>
 
 <script>
+  const refundUrl = {{ url_for('create_refund')|tojson }};
+  const csrfToken = {{ csrf_token()|tojson }};
+
   function reply_click(clicked_btn) {
     clicked_btn.disabled = true;
     var orderId = clicked_btn.id;
-    var amount = Number(clicked_btn.getAttribute("data-totalamount"));
 
-    axios.post({{ refund_service_url|tojson }} + "/api/v1/refunds", {
-      order_id: orderId,
-      amount,
+    axios.post(refundUrl, {order_id: orderId}, {
+      headers: {"X-CSRFToken": csrfToken},
     }).catch(() => {
       clicked_btn.disabled = false;
     });
