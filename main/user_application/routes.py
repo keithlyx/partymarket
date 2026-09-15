@@ -1,16 +1,14 @@
+import json
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
-from flask import abort, render_template, url_for, flash, redirect, request, jsonify, make_response
-import json
-from flask_wtf import form
+from flask import abort, flash, jsonify, make_response, redirect, render_template, request, url_for
 from flask_login import login_user, logout_user, current_user, login_required
 
-from user_application.invokes import invoke_http
-
-from user_application.models import Users
 from user_application.forms import RegistrationForm, LoginForm
-from user_application import app, db, bcrypt, csrf
+from user_application.invokes import invoke_http
+from user_application.models import Users
+from user_application import app, bcrypt, db
 from user_application.utils import get_cart_cookie, get_checkout_cookie
 
 
@@ -40,7 +38,7 @@ def home():
     return render_template('catalogue.html', title="Catalogue", catalogue_data=catalogue_data, venue_data=venue_data)
 
 # =========================== CATALOGUE / VENUE DISPLAY ===========================
-@app.route('/catalogue/<catalogue_id>', methods=['GET', 'POST'])
+@app.route('/catalogue/<catalogue_id>', methods=['GET'])
 @login_required
 def catalogue_detail(catalogue_id):
     catalogue_data = invoke_http(CATALOGUE_URL + "/api/v1/catalogue/" + catalogue_id, method='GET')
@@ -82,43 +80,42 @@ def cart():
     total_amount = Decimal("0.00")
     combined_dict = {}
 
-    if current_user.is_authenticated:   
-        cart_data = invoke_http(CART_URL + "/api/v1/carts/" + current_user.user_id_email)
+    cart_data = invoke_http(CART_URL + "/api/v1/carts/" + current_user.user_id_email)
 
-        if not isinstance(cart_data, dict) or 'data' not in cart_data:
-            cart_data = {"data": {"cart_items": [], "cart_venues": []}}
+    if not isinstance(cart_data, dict) or 'data' not in cart_data:
+        cart_data = {"data": {"cart_items": [], "cart_venues": []}}
 
-        for product_type in cart_data['data']:
-            if product_type == "cart_items":
-                for data in cart_data['data'][product_type]:
-                    item_id = data['item_id']
-                    quantity = data['quantity']
-                    specific_item = invoke_http(CATALOGUE_URL + '/api/v1/catalogue/' + item_id, method='GET')
-                    item_name = specific_item['data']['item_name']
-                    item_image = specific_item['data']['item_img']
-                    item_price = as_money(specific_item['data']['item_price'])
-                    total_amount += quantity * item_price
-                    catalogue_arr.append((item_image, item_name, quantity, item_price, item_id))
+    for product_type in cart_data['data']:
+        if product_type == "cart_items":
+            for data in cart_data['data'][product_type]:
+                item_id = data['item_id']
+                quantity = data['quantity']
+                specific_item = invoke_http(CATALOGUE_URL + '/api/v1/catalogue/' + item_id, method='GET')
+                item_name = specific_item['data']['item_name']
+                item_image = specific_item['data']['item_img']
+                item_price = as_money(specific_item['data']['item_price'])
+                total_amount += quantity * item_price
+                catalogue_arr.append((item_image, item_name, quantity, item_price, item_id))
 
-            elif product_type == "cart_venues":
-                for data in cart_data['data'][product_type]:
-                    venue_id = data['venue_id']
-                    specific_venue = invoke_http(VENUE_URL + '/api/v1/venues/' + venue_id, method='GET')
-                    venue_image = specific_venue['data']['venue_img']
-                    venue_name = specific_venue['data']['venue_name']
-                    venue_price = as_money(specific_venue['data']['venue_price'])
-                    total_amount += venue_price
-                    venue_arr.append((venue_image, venue_name, venue_price, venue_id, data['datetime']))
+        elif product_type == "cart_venues":
+            for data in cart_data['data'][product_type]:
+                venue_id = data['venue_id']
+                specific_venue = invoke_http(VENUE_URL + '/api/v1/venues/' + venue_id, method='GET')
+                venue_image = specific_venue['data']['venue_img']
+                venue_name = specific_venue['data']['venue_name']
+                venue_price = as_money(specific_venue['data']['venue_price'])
+                total_amount += venue_price
+                venue_arr.append((venue_image, venue_name, venue_price, venue_id, data['datetime']))
 
-        combined_dict = {
-            "catalogue_cart_details": [
-                [item[0], item[1], item[2], str(item[3]), item[4]] for item in catalogue_arr
-            ],
-            "venue_cart_details": [
-                [item[0], item[1], str(item[2]), item[3], item[4]] for item in venue_arr
-            ],
-            "total_amount": str(total_amount),
-        }
+    combined_dict = {
+        "catalogue_cart_details": [
+            [item[0], item[1], item[2], str(item[3]), item[4]] for item in catalogue_arr
+        ],
+        "venue_cart_details": [
+            [item[0], item[1], str(item[2]), item[3], item[4]] for item in venue_arr
+        ],
+        "total_amount": str(total_amount),
+    }
 
     # returns template
     resp = make_response(render_template("cart.html", title="Cart", catalogue_arr=catalogue_arr, venue_arr=venue_arr, total_amount=total_amount))
@@ -129,67 +126,59 @@ def cart():
     
     return resp
 
-@app.route('/add-to-cart/<prod_id>', methods=['GET','POST'])
+@app.route('/add-to-cart/<prod_id>', methods=['POST'])
 @login_required
 def add_to_cart(prod_id):
-    if request.method == 'POST':
-        if current_user.is_authenticated:
-            user_id = current_user.user_id_email
-            result_json_to_return = {}
-            
-            if prod_id[0] == "i":
-                try:
-                    quantity = int(request.form['quantity'])
-                except (TypeError, ValueError):
-                    flash('Item quantity must be a positive whole number.', 'danger')
-                    return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
-                result_json_to_return["quantity"] = quantity
+    user_id = current_user.user_id_email
+    cart_payload = {}
 
-            if prod_id[0] == "v":    
-                venue_datetime = request.form['venue_datetime']
-                result_json_to_return["venue_datetime"] = venue_datetime
+    if prod_id.startswith("i"):
+        try:
+            cart_payload["quantity"] = int(request.form['quantity'])
+        except (TypeError, ValueError):
+            flash('Item quantity must be a positive whole number.', 'danger')
+            return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
+        redirect_target = url_for('catalogue_detail', catalogue_id=prod_id)
+    elif prod_id.startswith("v"):
+        cart_payload["venue_datetime"] = request.form['venue_datetime']
+        redirect_target = url_for('venue_detail', venue_id=prod_id)
+    else:
+        flash('Invalid product.', 'danger')
+        return redirect(url_for('home'))
 
-            invoke_http(CART_URL + "/api/v1/carts/" + user_id + "/products/" + prod_id, method='POST', json=result_json_to_return)
-
-            # for redirection
-    if prod_id[0] == "i":
+    invoke_http(CART_URL + "/api/v1/carts/" + user_id + "/products/" + prod_id, method='POST', json=cart_payload)
+    if prod_id.startswith("i"):
         flash('Item has been added to cart!', 'success')
-        return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
     else:
         flash('Venue has been added to cart!', 'success')
-        return redirect(url_for('venue_detail', venue_id=prod_id))
+    return redirect(redirect_target)
     
 
 @app.route('/remove_from_cart/<prod_id>', methods=['POST'])
 @login_required
 def remove_from_cart(prod_id):
-    if request.method == 'POST':
-        if current_user.is_authenticated:
-            user_id = current_user.user_id_email
-            invoke_http(CART_URL + "/api/v1/carts/" + user_id + "/products/" + prod_id, method='DELETE')
-
-            flash(f'Item {prod_id} has been removed from cart!', 'info')
+    user_id = current_user.user_id_email
+    invoke_http(CART_URL + "/api/v1/carts/" + user_id + "/products/" + prod_id, method='DELETE')
+    flash(f'Item {prod_id} has been removed from cart!', 'info')
     return redirect(url_for('cart'))
 
 @app.route('/increase-cart-quantity/<prod_id>', methods=['POST'])
 @login_required
 def increase_cart_quantity(prod_id):
-    if request.method == "POST":
-        if current_user.is_authenticated:
-            user_id = current_user.user_id_email
-            cart_data = invoke_http(CART_URL + "/api/v1/carts/" + user_id, method='GET')
-            cart_item = next(
-                (item for item in cart_data.get("data", {}).get("cart_items", []) if item["item_id"] == prod_id),
-                None,
-            )
-            if cart_item:
-                invoke_http(
-                    CART_URL + "/api/v1/carts/" + user_id + "/items/" + prod_id,
-                    method='PATCH',
-                    json={"quantity": cart_item["quantity"] + 1},
-                )
+    user_id = current_user.user_id_email
+    cart_data = invoke_http(CART_URL + "/api/v1/carts/" + user_id, method='GET')
+    cart_item = next(
+        (item for item in cart_data.get("data", {}).get("cart_items", []) if item["item_id"] == prod_id),
+        None,
+    )
+    if cart_item:
+        invoke_http(
+            CART_URL + "/api/v1/carts/" + user_id + "/items/" + prod_id,
+            method='PATCH',
+            json={"quantity": cart_item["quantity"] + 1},
+        )
 
-            flash(f'Item {prod_id} quantity has been increased!', 'info')
+    flash(f'Item {prod_id} quantity has been increased!', 'info')
 
     return redirect(url_for('cart'))
 
@@ -197,42 +186,35 @@ def increase_cart_quantity(prod_id):
 @app.route('/decrease-cart-quantity/<prod_id>', methods=['POST'])
 @login_required
 def decrease_cart_quantity(prod_id):
-    if request.method == "POST":
-        if current_user.is_authenticated:
-            user_id = current_user.user_id_email
-            cart_data = invoke_http(CART_URL + "/api/v1/carts/" + user_id, method='GET')
-            cart_item = next(
-                (item for item in cart_data.get("data", {}).get("cart_items", []) if item["item_id"] == prod_id),
-                None,
-            )
-            if cart_item and cart_item["quantity"] > 1:
-                invoke_http(
-                    CART_URL + "/api/v1/carts/" + user_id + "/items/" + prod_id,
-                    method='PATCH',
-                    json={"quantity": cart_item["quantity"] - 1},
-                )
+    user_id = current_user.user_id_email
+    cart_data = invoke_http(CART_URL + "/api/v1/carts/" + user_id, method='GET')
+    cart_item = next(
+        (item for item in cart_data.get("data", {}).get("cart_items", []) if item["item_id"] == prod_id),
+        None,
+    )
+    if cart_item and cart_item["quantity"] > 1:
+        invoke_http(
+            CART_URL + "/api/v1/carts/" + user_id + "/items/" + prod_id,
+            method='PATCH',
+            json={"quantity": cart_item["quantity"] - 1},
+        )
 
-            flash(f'Item {prod_id} quantity has been decreased!', 'info')
+    flash(f'Item {prod_id} quantity has been decreased!', 'info')
 
     return redirect(url_for('cart'))
 
 # =========================== ORDERS ===========================
-@app.route('/order-logs', methods=['GET', "POST"])
+@app.route('/order-logs', methods=['GET'])
 @login_required
 def order_logs():
-    order_details = []
-    if request.method == "GET":
-        user_id = current_user.user_id_email
-        # call view_order complex microservice
+    user_id = current_user.user_id_email
+    order_data = invoke_http(VIEW_ORDER_URL + "/api/v1/orders", method="GET", params={"user_id": user_id})
 
-        order_data = invoke_http(VIEW_ORDER_URL + "/api/v1/orders", method="GET", params={"user_id": user_id})
-            
-
-        if order_data['code'] == 200:
-            order_details = order_data["data"]["orders"]
-        else:
-            flash("No orders found!", "info")
-            return redirect(url_for('cart'))
+    if order_data.get('code') == 200:
+        order_details = order_data["data"]["orders"]
+    else:
+        flash("No orders found!", "info")
+        return redirect(url_for('cart'))
 
     return render_template("order-logs.html", title="Order Logs", order_details=order_details)
 
@@ -253,7 +235,7 @@ def create_refund():
 
 
 # order details view
-@app.route('/order-logs/<order_id>', methods=['GET', "POST"])
+@app.route('/order-logs/<order_id>', methods=['GET'])
 @login_required
 def order_details(order_id):
     user_id = current_user.user_id_email
@@ -386,33 +368,25 @@ def stripe_payment():
 
 
 # =========================== REVIEW ===========================
-@app.route('/add-review/<prod_id>', methods=['GET', 'POST'])
+@app.route('/add-review/<prod_id>', methods=['POST'])
 @login_required
 def add_review(prod_id):
-    if request.method == 'POST':
-        if current_user.is_authenticated:
-            user_id = current_user.user_id_email
-            rating = int(request.form['rating'])
-            review = request.form['review']
+    user_id = current_user.user_id_email
+    review_data = {
+        "rating": int(request.form['rating']),
+        "rating_desc": request.form['review'],
+        "user_id": user_id,
+        "prod_id": prod_id,
+    }
+    response = invoke_http(PROCESS_REVIEW_URL + '/api/v1/reviews', method='POST', json=review_data)
+    if response.get('code') in range(200, 300):
+        flash('Your review has been added!', 'success')
 
-            review_data = {"rating": rating, "rating_desc": review}
-
-            # call add_review microservice
-            review_data["user_id"] = user_id
-            review_data["prod_id"] = prod_id
-            response = invoke_http(PROCESS_REVIEW_URL + '/api/v1/reviews', method='POST', json=review_data)
-            if prod_id[0] == "i":
-                if response['code'] in range(200, 300):
-                    flash(f'Your review has been added!', 'success')
-                    return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
-                else:
-                    return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
-            else:
-                if response['code'] in range(200, 300):
-                    flash(f'Your review has been added!', 'success')
-                    return redirect(url_for('venue_detail', venue_id=prod_id))
-                else:
-                    return redirect(url_for('venue_detail', venue_id=prod_id))
+    if prod_id.startswith("i"):
+        return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
+    if prod_id.startswith("v"):
+        return redirect(url_for('venue_detail', venue_id=prod_id))
+    return redirect(url_for('home'))
 
 @app.route('/review/edit_review/<user_id>/<prod_id>', methods=['POST'])
 @login_required
