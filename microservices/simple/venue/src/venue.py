@@ -47,27 +47,19 @@ with app.app_context():
   # call your method here
     db.create_all()
 
-@app.route("/api/v1/venue")
+@app.route("/api/v1/venues")
 def get_all():
     venues = Venue.query.all()
-    if len(venues):
-
-        return jsonify(
-            {
-                "code": 200,
-                "data": {
-                    "venues": [venue.json() for venue in venues]
-                }
-            }
-        )
     return jsonify(
         {
-            "code": 404,
-            "message": "There are no venues."
+            "code": 200,
+            "data": {
+                "venues": [venue.json() for venue in venues]
+            }
         }
-    ), 404
+    ), 200
 
-@app.route("/api/v1/venue/<string:venue_id>")
+@app.route("/api/v1/venues/<string:venue_id>")
 def find_by_venue_id(venue_id):
     venue = Venue.query.filter_by(venue_id=venue_id).first()
     if venue:
@@ -87,12 +79,17 @@ def find_by_venue_id(venue_id):
         }
     ), 404
 
-#i think this doenst work atm
-@app.route("/api/v1/venue/update_venue_rating", methods=["PUT"])
-def update_venue_rating():
-    venue_id = request.json['venue_id']
-    new_rating = request.json['rating']
-    new_review_count = request.json["review_count"]
+@app.route("/api/v1/venues/<string:venue_id>/rating", methods=["PATCH"])
+def update_venue_rating(venue_id):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "rating" not in data or "review_count" not in data:
+        return jsonify({
+            "code": 400,
+            "message": "Request must include rating and review_count."
+        }), 400
+
+    new_rating = data['rating']
+    new_review_count = data["review_count"]
     venue = Venue.query.filter_by(venue_id=venue_id).first()
     if venue:
         try:
@@ -101,17 +98,18 @@ def update_venue_rating():
             db.session.commit()
             return jsonify(
                 {
-                    "code": 201,
+                    "code": 200,
                     "data": venue.json(),
                     "message": "Venue rating updated."
                 }
-            )
+            ), 200
         except Exception as e:
+            db.session.rollback()
             return jsonify(
                 {
                     "code": 500,
                     "venue_id": venue_id,
-                    "message": "An error occurred updating the venue rating." + str(e)
+                    "message": "An error occurred updating the venue rating."
                 }
             ), 500
 

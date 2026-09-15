@@ -95,65 +95,61 @@ with app.app_context():
     db.create_all()
 
 
-# get list of orders by user id
-@app.route("/api/v1/get_orders/<string:user_id>", methods=['GET'])
-def get_orders(user_id):
-    # user_id = request.args.get("user_id")
+@app.route("/api/v1/orders", methods=['GET'])
+def get_orders():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({
+            "code": 400,
+            "message": "user_id is required.",
+        }), 400
+
     orders = Orders.query.filter_by(user_id=user_id).all()
     order_json = [detail.json() for detail in orders]
-    if orders:
-        temp_orders = []
-        for order in order_json:
-            temp = {
-                "order_id": order["order_id"],
-                "total_amount": order["total_amount"],
-                "order_datetime": order["order_datetime"],
-                "order_status": order["order_status"],
-                "delivery_address": order["delivery_address"],
-                "order_items": [],
+    temp_orders = []
+    for order in order_json:
+        temp = {
+            "order_id": order["order_id"],
+            "total_amount": order["total_amount"],
+            "order_datetime": order["order_datetime"],
+            "order_status": order["order_status"],
+            "delivery_address": order["delivery_address"],
+            "order_items": [],
+        }
+        order_id = order["order_id"]
+        order_items = OrderItems.query.filter_by(order_id=order_id).all()
+
+        order_items_json = [detail.json() for detail in order_items]
+
+        for item in order_items_json:
+            temp["order_items"].append({
+                "item_id": item["item_id"],
+                "item_quantity": item["item_quantity"],
+                "item_price": item["item_price"]
+            })
+
+        order_venue = OrderVenue.query.filter_by(order_id=order_id).all()
+
+        order_venue_json = [detail.json() for detail in order_venue]
+
+        for venue in order_venue_json:
+            temp["venue"] = {
+                "venue_id": venue["venue_id"],
+                "venue_price": venue["venue_price"],
+                "venue_datetime": venue["venue_datetime"]
             }
-            order_id = order["order_id"]
-            order_items = OrderItems.query.filter_by(order_id=order_id).all()
+        temp_orders.append(temp)
 
-            order_items_json = [detail.json() for detail in order_items]
-
-            for item in order_items_json:
-                temp["order_items"].append({
-                    "item_id": item["item_id"],
-                    "item_quantity": item["item_quantity"],
-                    "item_price": item["item_price"]
-                })
-
-            order_venue = OrderVenue.query.filter_by(order_id=order_id).all()
-
-            order_venue_json = [detail.json() for detail in order_venue]
-
-            for venue in order_venue_json:
-                temp["venue"] = {
-                    "venue_id": venue["venue_id"],
-                    "venue_price": venue["venue_price"],
-                    "venue_datetime": venue["venue_datetime"]
-                }
-            temp_orders.append(temp)
-        print(temp_orders)
-
-        return jsonify(
-            {
-                "code": 200,
-                "user_id": user_id,
-                "orders": temp_orders
-            }
-        ),200
     return jsonify(
         {
-            "code": 404,
+            "code": 200,
             "user_id": user_id,
-            "message": f"No orders for user id {user_id} found."
+            "orders": temp_orders
         }
-    ), 404
+    ), 200
 
 
-@app.route("/api/v1/get_order/<order_id>", methods=['GET'])
+@app.route("/api/v1/orders/<order_id>", methods=['GET'])
 def get_order(order_id):
     # order_id = request.args.get("order_id")
     order_record = Orders.query.filter_by(order_id=order_id).first()
@@ -202,7 +198,7 @@ def get_order(order_id):
     ), 200
 
 
-@app.route("/api/v1/create_order", methods=['POST'])
+@app.route("/api/v1/orders", methods=['POST'])
 def create_order():
     data = request.get_json()
     status = "Accepted"
@@ -243,24 +239,29 @@ def create_order():
         }), 500
 
 
-@app.route("/api/v1/update_order_status/<order_id>/", methods=['POST'])
+@app.route("/api/v1/orders/<order_id>", methods=['PATCH'])
 def update_order(order_id):
-    data = request.get_json()
-    print(data)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data.get("status"):
+        return jsonify({
+            "code": 400,
+            "message": "Request must include status.",
+        }), 400
+
     order = Orders.query.filter_by(order_id=order_id).first()
     if order:
         order.order_status = data["status"]
         try:
             db.session.commit()
             return jsonify({
-                "code": 201,
+                "code": 200,
                 "data": order.json()
-            }), 201
+            }), 200
         except Exception as e:
             db.session.rollback()
             return jsonify({
                 "code": 500,
-                "message": "An error occurred while updating the order. " + str(e)
+                "message": "An error occurred while updating the order."
             }), 500
     return jsonify({
         "code": 404,

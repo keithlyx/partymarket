@@ -1,28 +1,34 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from flask_cors import CORS
 from os import environ, path
 from invokes import invoke_http
 
 catalogue_URL = environ.get('catalogue_URL') or "http://catalogue:5004/api/v1/catalogue"
-venue_URL = environ.get('venue_URL') or "http://venue:5003/api/v1/venue"
-order_URL = environ.get('order_URL') or "http://order:5006/api/v1"
+venue_URL = environ.get('venue_URL') or "http://venue:5003/api/v1/venues"
+order_URL = environ.get('order_URL') or "http://order:5006/api/v1/orders"
 
 app = Flask(__name__)
 CORS(app)
 
-@app.route("/api/v1/get_order_by_user/<user_id>", methods=["GET"])
-def get_orders(user_id):
+@app.route("/api/v1/orders", methods=["GET"])
+def get_orders():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"code": 400, "message": "user_id is required."}), 400
+
     # Call order microservice
     # 1. get list of orders
-    print("retrieving orders for user_id: " + user_id)
-    order_data = invoke_http(order_URL + "/get_orders/" + user_id, method="GET")
+    order_data = invoke_http(
+        order_URL,
+        method="GET",
+        params={"user_id": user_id},
+    )
     if order_data["code"] not in range(200, 300):
         return jsonify({
             "code": order_data["code"],
             "message": order_data["message"]
         }), order_data["code"]
-    print("order_data: ", order_data)
     result_json_to_return = {}
     # arranging order_items and venue details
     order_count = 0
@@ -85,11 +91,11 @@ def get_orders(user_id):
     ), 200
 
 
-@app.route("/api/v1/get_order_by_order/<order_id>", methods=["GET"])
+@app.route("/api/v1/orders/<order_id>", methods=["GET"])
 def get_order_by_id(order_id):
     result_json_to_return = {}
     print("retrieving order for order_id: " + order_id)
-    order_data_user_id = invoke_http(order_URL + "/get_order/" + order_id, method="GET")
+    order_data_user_id = invoke_http(order_URL + "/" + order_id, method="GET")
     if order_data_user_id["code"] not in range(200, 300):
         return jsonify({
             "code": order_data_user_id["code"],

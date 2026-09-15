@@ -8,9 +8,9 @@ import json
 
 import datetime
 
-payment_URL = environ.get('payment_URL') or 'http://payment:5008/api/v1/stripepay'
-cart_URL = environ.get('cart_URL') or 'http://cart:5005/api/v1'
-order_URL = environ.get('order_URL') or 'http://order:5006/api/v1/create_order'
+payment_URL = environ.get('payment_URL') or 'http://payment:5008/api/v1/payments'
+cart_URL = environ.get('cart_URL') or 'http://cart:5005/api/v1/carts'
+order_URL = environ.get('order_URL') or 'http://order:5006/api/v1/orders'
 
 app = Flask(__name__)
 
@@ -18,7 +18,7 @@ CORS(app)
 
 
 # just to get all the cart details
-@app.route("/api/v1/create_order", methods=["POST"])
+@app.route("/api/v1/orders", methods=["POST"])
 def create_order():
     # Simple check of input format and data of the request are JSON
     if request.is_json:
@@ -84,7 +84,7 @@ def processOrder(order):
     print("\nSending email to user: ", order["user_id"])
     sendEmail(order)
     print("\ndeleting cart for user: ", order["user_id"])
-    delete_status = invoke_http(cart_URL+"/delete_cart/"+order["user_id"], method='POST')
+    delete_status = invoke_http(cart_URL+"/"+order["user_id"], method='DELETE')
     if delete_status["code"] not in range(200, 300):
         return jsonify({
             "code": delete_status["code"],

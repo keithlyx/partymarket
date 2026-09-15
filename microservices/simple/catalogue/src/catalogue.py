@@ -40,27 +40,22 @@ with app.app_context():
   # call your method here
     db.create_all()
 
-#get all items
 @app.route("/api/v1/catalogue")
 def get_all():
-    print(request.cookies.get('user_id_email'))
+    category = request.args.get("category")
+    query = Item.query
+    if category:
+        query = query.filter_by(category_name=category)
 
-    items = Item.query.all()
-    if len(items):
-        return jsonify(
-            {
-                "code": 200,
-                "data": {
-                    "items": [item.json() for item in items]
-                }
-            }
-        ), 200
+    items = query.all()
     return jsonify(
         {
-            "code": 404,
-            "message": "There are no items."
+            "code": 200,
+            "data": {
+                "items": [item.json() for item in items]
+            }
         }
-    ), 404
+    ), 200
 
 # get item by id
 @app.route("/api/v1/catalogue/<string:item_id>")
@@ -82,35 +77,17 @@ def find_by_id(item_id):
         }
     ), 404
 
-# get item by category
-@app.route("/api/v1/catalogue/category/<string:category>")
-def find_by_category(category):
-    items = Item.query.filter_by(category_name=category).all()
-    if items:
-        return jsonify(
-            {
-                "code": 200,
-                "data": {
-                    "items": [item.json() for item in items]
-                }
-            }
-        ), 200
-    return jsonify(
-        {
-            "code": 404,
-            "data": {
-                "category": category
-            },
-            "message": "Items not found."
-        }
-    ), 404
+@app.route("/api/v1/catalogue/<string:item_id>/rating", methods=['PATCH'])
+def update_rating(item_id):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "rating" not in data or "review_count" not in data:
+        return jsonify({
+            "code": 400,
+            "message": "Request must include rating and review_count."
+        }), 400
 
-# update item rating
-@app.route("/api/v1/catalogue/update_item_rating", methods=['PUT'])
-def update_rating():
-    item_id = request.json['item_id']
-    new_rating = request.json['rating']
-    new_review_count = request.json["review_count"]
+    new_rating = data['rating']
+    new_review_count = data["review_count"]
     item = Item.query.filter_by(item_id=item_id).first()
     if item:
         try:
@@ -124,13 +101,14 @@ def update_rating():
                 }
             )
         except Exception as e:
+            db.session.rollback()
             return jsonify(
                 {
                     "code": 500,
                     "data": {
                         "item_id": item_id
                     },
-                    "message": "An error occurred while updating the item." + str(e)
+                "message": "An error occurred while updating the item."
                 }
             ), 500
     return jsonify(

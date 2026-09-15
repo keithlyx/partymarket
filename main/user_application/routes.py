@@ -15,7 +15,7 @@ from user_application.utils import get_cart_cookie, get_checkout_cookie
 @app.route('/', methods=['GET'])
 def home():
     catalogue_data = invoke_http("http://localhost:5004/api/v1/catalogue", method='GET')
-    venue_data = invoke_http("http://localhost:5003/api/v1/venue", method='GET')
+    venue_data = invoke_http("http://localhost:5003/api/v1/venues", method='GET')
 
     return render_template('catalogue.html', title="Catalogue", catalogue_data=catalogue_data, venue_data=venue_data)
 
@@ -24,11 +24,11 @@ def home():
 @login_required
 def catalogue_detail(catalogue_id):
     catalogue_data = invoke_http("http://localhost:5004/api/v1/catalogue/" + catalogue_id, method='GET')
-    catalogue_review = invoke_http("http://localhost:5007/api/v1/review/product/" + catalogue_id, method='GET')
+    catalogue_review = invoke_http("http://localhost:5007/api/v1/reviews", method='GET', params={"product_id": catalogue_id})
 
     # Check if the 'data' and 'review' keys exist in the catalogue_review dictionary
-    if 'data' in catalogue_review and 'review' in catalogue_review['data']:
-        catalogue_review = catalogue_review['data']['review']
+    if 'data' in catalogue_review and 'reviews' in catalogue_review['data']:
+        catalogue_review = catalogue_review['data']['reviews']
     else:
         # If either key doesn't exist, return an error message
         catalogue_review = []
@@ -40,12 +40,12 @@ def catalogue_detail(catalogue_id):
 @app.route('/venue/<venue_id>', methods=['GET'])
 @login_required
 def venue_detail(venue_id):
-    venue_data = invoke_http("http://localhost:5003/api/v1/venue/" + venue_id, method='GET')
-    venue_review = invoke_http("http://localhost:5007/api/v1/review/product/" + venue_id, method='GET')
+    venue_data = invoke_http("http://localhost:5003/api/v1/venues/" + venue_id, method='GET')
+    venue_review = invoke_http("http://localhost:5007/api/v1/reviews", method='GET', params={"product_id": venue_id})
 
     # Check if the 'data' and 'review' keys exist in the catalogue_review dictionary
-    if 'data' in venue_review and 'review' in venue_review['data']:
-        venue_review = venue_review['data']['review']
+    if 'data' in venue_review and 'reviews' in venue_review['data']:
+        venue_review = venue_review['data']['reviews']
     else:
         # If either key doesn't exist, return an error message
         venue_review = []
@@ -65,50 +65,34 @@ def cart():
     combined_dict = {}
 
     if current_user.is_authenticated:   
-        cart_data = invoke_http("http://localhost:5005/api/v1/get_cart/" + current_user.user_id_email)
+        cart_data = invoke_http("http://localhost:5005/api/v1/carts/" + current_user.user_id_email)
 
-        if 'data' not in cart_data and 'cart_items' not in cart_data and 'cart_venue' not in cart_data:
-            cart_data = {}
+        if not isinstance(cart_data, dict) or 'data' not in cart_data:
+            cart_data = {"data": {"cart_items": [], "cart_venues": []}}
 
-        # if not cart_data:
-        #     cart_data = {'data': {'cart_items': [], 'cart_venue': []}}
-        else:
-            for product_type in cart_data['data']:
-                if product_type == "cart_items":
-                    for data in cart_data['data'][product_type]:
-                        item_id = data['item_id']
-                        quantity = data['quantity']
-                        specific_item = invoke_http('http://localhost:5004/api/v1/catalogue/' + item_id, method='GET')
-                        
-                        # Microservice product details
-                        item_name = specific_item['data']['item_name']
-                        item_image = specific_item['data']['item_img']
-                        item_price = specific_item['data']['item_price']
+        for product_type in cart_data['data']:
+            if product_type == "cart_items":
+                for data in cart_data['data'][product_type]:
+                    item_id = data['item_id']
+                    quantity = data['quantity']
+                    specific_item = invoke_http('http://localhost:5004/api/v1/catalogue/' + item_id, method='GET')
+                    item_name = specific_item['data']['item_name']
+                    item_image = specific_item['data']['item_img']
+                    item_price = specific_item['data']['item_price']
+                    total_amount += quantity * item_price
+                    catalogue_arr.append((item_image, item_name, quantity, item_price, item_id))
 
-                        total_amount += quantity * item_price
+            elif product_type == "cart_venues":
+                for data in cart_data['data'][product_type]:
+                    venue_id = data['venue_id']
+                    specific_venue = invoke_http('http://localhost:5003/api/v1/venues/' + venue_id, method='GET')
+                    venue_image = specific_venue['data']['venue_img']
+                    venue_name = specific_venue['data']['venue_name']
+                    venue_price = specific_venue['data']['venue_price']
+                    total_amount += venue_price
+                    venue_arr.append((venue_image, venue_name, venue_price, venue_id))
 
-                        catalogue_arr.append((item_image, item_name,quantity, item_price, item_id))
-
-                else:
-                    for data in cart_data['data'][product_type]:
-
-                        venue_id = data['venue_id']
-                        specific_venue = invoke_http('http://localhost:5003/api/v1/venue/' + venue_id, method='GET')
-
-                        # Microservice product details
-  
-                        venue_image = specific_venue['data']['venue_img']
-                        venue_name = specific_venue['data']['venue_name']
-                        venue_price = specific_venue['data']['venue_price']
-
-                        total_amount += venue_price
-
-                        venue_arr.append((venue_image, venue_name,venue_price, venue_id))
-
-                
-
-            # Converting to json string
-            combined_dict = {"catalogue_cart_details": catalogue_arr, "venue_cart_details": venue_arr, "total_amount":total_amount}
+        combined_dict = {"catalogue_cart_details": catalogue_arr, "venue_cart_details": venue_arr, "total_amount": total_amount}
 
     # returns template
     resp = make_response(render_template("cart.html", title="Cart", catalogue_arr=catalogue_arr, venue_arr=venue_arr, total_amount=total_amount))
@@ -136,7 +120,7 @@ def add_to_cart(prod_id):
                 result_json_to_return["venue_datetime"] = venue_datetime
 
             print(result_json_to_return)
-            invoke_http("http://localhost:5005/api/v1/add_cart/" + user_id + "/" + prod_id, method='POST', json=result_json_to_return)
+            invoke_http("http://localhost:5005/api/v1/carts/" + user_id + "/products/" + prod_id, method='POST', json=result_json_to_return)
 
             # for redirection
     if prod_id[0] == "i":
@@ -152,7 +136,7 @@ def remove_from_cart(prod_id):
     if request.method == 'POST':
         if current_user.is_authenticated:
             user_id = current_user.user_id_email
-            invoke_http("http://localhost:5005/api/v1/remove-from-cart/" + prod_id + "/" + user_id, method='POST')
+            invoke_http("http://localhost:5005/api/v1/carts/" + user_id + "/products/" + prod_id, method='DELETE')
 
             flash(f'Item {prod_id} has been removed from cart!', 'info')
     return redirect(url_for('cart'))
@@ -162,7 +146,17 @@ def increase_cart_quantity(prod_id):
     if request.method == "POST":
         if current_user.is_authenticated:
             user_id = current_user.user_id_email
-            invoke_http("http://localhost:5005/api/v1/increase-cart-quantity/" + prod_id + "/" + user_id, method='POST')
+            cart_data = invoke_http("http://localhost:5005/api/v1/carts/" + user_id, method='GET')
+            cart_item = next(
+                (item for item in cart_data.get("data", {}).get("cart_items", []) if item["item_id"] == prod_id),
+                None,
+            )
+            if cart_item:
+                invoke_http(
+                    "http://localhost:5005/api/v1/carts/" + user_id + "/items/" + prod_id,
+                    method='PATCH',
+                    json={"quantity": cart_item["quantity"] + 1},
+                )
 
             flash(f'Item {prod_id} quantity has been increased!', 'info')
 
@@ -174,7 +168,17 @@ def decrease_cart_quantity(prod_id):
     if request.method == "POST":
         if current_user.is_authenticated:
             user_id = current_user.user_id_email
-            invoke_http("http://localhost:5005/api/v1/decrease-cart-quantity/" + prod_id + "/" + user_id, method='POST')
+            cart_data = invoke_http("http://localhost:5005/api/v1/carts/" + user_id, method='GET')
+            cart_item = next(
+                (item for item in cart_data.get("data", {}).get("cart_items", []) if item["item_id"] == prod_id),
+                None,
+            )
+            if cart_item and cart_item["quantity"] > 1:
+                invoke_http(
+                    "http://localhost:5005/api/v1/carts/" + user_id + "/items/" + prod_id,
+                    method='PATCH',
+                    json={"quantity": cart_item["quantity"] - 1},
+                )
 
             flash(f'Item {prod_id} quantity has been decreased!', 'info')
 
@@ -190,7 +194,7 @@ def order_logs():
             user_id = current_user.user_id_email
             # call view_order complex microservice
 
-            order_data = invoke_http("http://localhost:5300/api/v1/get_order_by_user/" + user_id, method="GET")
+            order_data = invoke_http("http://localhost:5300/api/v1/orders", method="GET", params={"user_id": user_id})
             
 
             if order_data['code'] == 200:                
@@ -210,10 +214,10 @@ def order_details(order_id):
     print("=========================== order details view ===========================")
     user_id = current_user.user_id_email
 
-    order_data = invoke_http("http://localhost:5300/api/v1/get_order_by_order/" + order_id, method="GET")
+    order_data = invoke_http("http://localhost:5300/api/v1/orders/" + order_id, method="GET")
     print(order_data)
     print("============================================")
-    user_review_data = invoke_http("http://localhost:5007/api/v1/review/user/" + user_id, method="GET")
+    user_review_data = invoke_http("http://localhost:5007/api/v1/reviews", method="GET", params={"user_id": user_id})
     
 
         # order_items: arr
@@ -221,7 +225,7 @@ def order_details(order_id):
         item["isReviewed"] = ""
         item_id = item["item_id"]
         if user_review_data["code"] in range(200, 401):
-            for review in user_review_data["data"]["review"]:
+            for review in user_review_data["data"]["reviews"]:
                 if item_id == review["prod_id"]:
                     isReviewed_dict = {}
                     rating = review["rating"]
@@ -237,7 +241,7 @@ def order_details(order_id):
         venue_data = order_data[order_id]["venue"]
         venue_data["isReviewed"] = ""
         if user_review_data["code"] in range(200, 401):
-            for review in user_review_data["data"]["review"]:
+            for review in user_review_data["data"]["reviews"]:
                 if order_venue_id == review["prod_id"]:
                     isReviewed_dict = {}
                     rating = review["rating"]
@@ -276,7 +280,6 @@ def checkout():
 
         return resp
 
-        # invoke_http("http://localhost:5200/api/v1/get_cart/" + user_id + "/" + str(total_amount), method="POST")
     
     return render_template("checkout.html", title="Checkout", catalogue_arr=catalogue_arr, venue_arr=venue_arr, total_amount=total_amount)
 
@@ -307,7 +310,9 @@ def add_review(prod_id):
             print(type(review_data))
 
             # call add_review microservice
-            response = invoke_http(f'http://localhost:5400/api/v1/review/add_review/{user_id}/{prod_id}', method='POST', json=review_data)
+            review_data["user_id"] = user_id
+            review_data["prod_id"] = prod_id
+            response = invoke_http('http://localhost:5400/api/v1/reviews', method='POST', json=review_data)
             print(response)
             if prod_id[0] == "i":
                 if response['code'] in range(200, 401):
@@ -342,7 +347,7 @@ def update_review(user_id, prod_id):
     result_json_to_return["rating"] = rating
     result_json_to_return["rating_desc"] = rating_desc
 
-    response = invoke_http("http://localhost:5400/api/v1/review/edit_review/" + user_id + "/" + prod_id, method="PUT", json=result_json_to_return)
+    response = invoke_http("http://localhost:5400/api/v1/reviews/" + user_id + "/" + prod_id, method="PATCH", json=result_json_to_return)
     print(response)
 
     if prod_id[0] == "i":

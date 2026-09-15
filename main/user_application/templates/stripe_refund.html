@@ -12,8 +12,8 @@
       refundBtn.addEventListener('click', async (event) => {
         event.preventDefault();
         try{
-          const response = await axios.post("http://localhost:5700/api/v1/refund", {
-            chargeId
+          const response = await axios.post("http://localhost:5700/api/v1/refunds", {
+            order_id: chargeId
           })
             console.log(response);
           } catch (error) {

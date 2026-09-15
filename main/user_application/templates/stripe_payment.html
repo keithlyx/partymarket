@@ -125,7 +125,7 @@
           "venue": venue[0],
           }
           try{
-          var response = await axios.post("http://localhost:5200/api/v1/create_order", result);
+          var response = await axios.post("http://localhost:5200/api/v1/orders", result);
             console.log(response);
 
           } catch (error) {

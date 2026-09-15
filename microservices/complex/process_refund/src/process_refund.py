@@ -10,61 +10,45 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-payment_URL = environ.get('payment_URL') or "http://payment:5008/api/v1/striperefund"
-order_URL = environ.get('order_URL') or "http://order:5006/api/v1/"
-getorder_URL = environ.get('getorder_URL') or "http://order:5006/api/v1/get_order/"
-@app.route('/api/v1/refund', methods=["POST"])
-def refund_():
-    print(request)
-    if request.is_json:
-        #retrieve the charge id from the url
-        try:
-            order_id = request.get_json()
-            result = processRefund(order_id)
-            # print(result)
-            result = json.loads(result[0].data)
-
-            return jsonify(result), result["code"]
-        
-        except Exception as e:
-            return jsonify({
-                "code": 404,
-                "message": str(e)
-            }), 404
-    # if reached here, not a JSON request.
-    return jsonify({
-        "code": 400,
-        "message": "Invalid JSON input: " + str(request.get_data())
-    }), 400
+payment_URL = environ.get('payment_URL') or "http://payment:5008/api/v1/refunds"
+order_URL = environ.get('order_URL') or "http://order:5006/api/v1/orders"
 
 
-def processRefund(order_id):
-    print(f'\n-----Processing refund for order_id: {order_id}-----')
-    data = request.get_json()
-    charge_id = data['chargeId']
-    amount = data['totalAmountElement']
-    refund = invoke_http(payment_URL, method="POST", json={"charge_id": charge_id , "amount": amount })
+@app.route('/api/v1/refunds', methods=["POST"])
+def refund():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data.get("order_id") or data.get("amount") is None:
+        return jsonify({
+            "code": 400,
+            "message": "Request must include order_id and amount.",
+        }), 400
+
+    return process_refund(data)
+
+
+def process_refund(data):
+    order_id = data["order_id"]
+    refund = invoke_http(payment_URL, method="POST", json={
+        "charge_id": order_id,
+        "amount": data["amount"],
+    })
     if refund["code"] not in range(200, 300):
         return jsonify({
             "code": refund["code"],
-            "message": "Error in payment microservice while refunding" + refund["message"]
+            "message": "Payment provider rejected the refund request.",
         }), refund["code"]
-    print("Refund result:", refund)
-    # invoke the order microservie to update the order status
-    print("Sending to order microservice to update status")
-    order_id = order_id["chargeId"]
-    order = invoke_http(order_URL + '/update_order_status/' + order_id, method="POST", json={"status": "Refunded"})
-    print("Updated to refunded")
+
+    order = invoke_http(order_URL + "/" + order_id, method="PATCH", json={"status": "Refunded"})
     if order["code"] not in range(200, 300):
         return jsonify({
             "code": order["code"],
-            "message": "Error in order microservice while updating status" + order["message"]
+            "message": "Order status could not be updated after the refund.",
         }), order["code"]
-    print("-----Sending to email queue-----")
-    sendEmail(order['data'])
+
+    sendEmail(order["data"])
     return jsonify({
         "code": 200,
-        "message": "Refund process ends here sent to email queue"
+        "message": "Refund processed and notification queued.",
     }), 200
 
 def sendEmail(order_details):

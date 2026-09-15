@@ -17,7 +17,7 @@ stripe.api_key = environ.get('STRIPE_SECRET_KEY')
 logger = logging.getLogger(__name__)
 
 
-@app.route('/api/v1/stripepay', methods=['POST'])
+@app.route('/api/v1/payments', methods=['POST'])
 def stripepay1():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not data.get('token') or data.get('amount') is None:
@@ -57,7 +57,7 @@ def stripepay1():
    #retrieve the receipt url from the charge object
 
 
-@app.route('/api/v1/striperefund', methods=['POST'])
+@app.route('/api/v1/refunds', methods=['POST'])
 def striperefund():
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not data.get('charge_id') or data.get('amount') is None:

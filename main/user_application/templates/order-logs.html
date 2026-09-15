@@ -80,20 +80,17 @@
 
 <script>
   function reply_click(clicked_btn) {
-    chargeId = clicked_btn.id;
-    var totalAmountElement = clicked_btn.getAttribute("data-totalamount");
-    console.log("Charge ID: " + chargeId);
-    console.log("Total Amount: " + totalAmountElement);
+    var orderId = clicked_btn.id;
+    var amount = clicked_btn.getAttribute("data-totalamount");
 
-    var refundBtn = document.getElementById(chargeId);
-    console.log("Refund Button: " + refundBtn);
+    var refundBtn = document.getElementById(orderId);
 
     refundBtn.addEventListener("click", async (event) => {
       event.preventDefault();
       try {
-        const response = await axios.post("http://localhost:5700/api/v1/refund", {
-          chargeId,
-          totalAmountElement,
+        const response = await axios.post("http://localhost:5700/api/v1/refunds", {
+          order_id: orderId,
+          amount,
         });
       } catch (error) {
         console.log(error);
