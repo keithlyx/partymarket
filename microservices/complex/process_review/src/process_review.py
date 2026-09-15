@@ -1,4 +1,5 @@
 from os import environ
+from typing import Any
 
 from flask import Flask, jsonify, request
 
@@ -12,8 +13,8 @@ review_url = environ.get("REVIEW_URL") or "http://review:5007/api/v1/reviews"
 app = Flask(__name__)
 
 
-def _downstream_error(response, message):
-    code = response.get("code", 502)
+def _downstream_error(response: Any, message):
+    code = response.get("code", 502) if isinstance(response, dict) else 502
     if code >= 500:
         code = 502
     return jsonify({"code": code, "message": message}), code
@@ -25,17 +26,29 @@ def _update_product_rating(product_id):
         method="GET",
         params={"product_id": product_id},
     )
-    if reviews_response.get("code") not in range(200, 300):
+    if not isinstance(reviews_response, dict) or reviews_response.get("code") not in range(200, 300):
         return _downstream_error(
             reviews_response,
             "Review service could not retrieve product reviews.",
         )
 
-    reviews = reviews_response.get("data", {}).get("reviews", [])
-    if not reviews:
+    review_data = reviews_response.get("data")
+    reviews = review_data.get("reviews", []) if isinstance(review_data, dict) else []
+    if not isinstance(reviews, list) or not reviews:
         return jsonify({
             "code": 502,
             "message": "Review service returned no reviews after the update.",
+        }), 502
+
+    if any(
+        not isinstance(review, dict)
+        or isinstance(review.get("rating"), bool)
+        or not isinstance(review.get("rating"), (int, float))
+        for review in reviews
+    ):
+        return jsonify({
+            "code": 502,
+            "message": "Review service returned invalid ratings.",
         }), 502
 
     rating = round(sum(review["rating"] for review in reviews) / len(reviews), 2)
@@ -61,7 +74,7 @@ def _update_product_rating(product_id):
             "message": "Product ID must identify a catalogue item or venue.",
         }), 400
 
-    if rating_response.get("code") not in range(200, 300):
+    if not isinstance(rating_response, dict) or rating_response.get("code") not in range(200, 300):
         return _downstream_error(
             rating_response,
             "Product rating could not be updated.",
@@ -88,6 +101,15 @@ def add_review():
 
     rating_response = _update_product_rating(data["prod_id"])
     if isinstance(rating_response, tuple):
+        rollback = invoke_http(
+            review_url + "/" + data["user_id"] + "/" + data["prod_id"],
+            method="DELETE",
+        )
+        if not isinstance(rollback, dict) or rollback.get("code") not in range(200, 300):
+            return jsonify({
+                "code": 502,
+                "message": "Review was created but could not be rolled back after rating update failure.",
+            }), 502
         return rating_response
 
     return jsonify({
@@ -103,6 +125,18 @@ def update_review(user_id, prod_id):
     validation_error = _validate_review(data, require_identity=False)
     if validation_error:
         return jsonify({"code": 400, "message": validation_error}), 400
+    if not (prod_id.startswith("i") or prod_id.startswith("v")):
+        return jsonify({
+            "code": 400,
+            "message": "Product ID must identify a catalogue item or venue.",
+        }), 400
+
+    previous_review = invoke_http(
+        review_url + "/" + user_id + "/" + prod_id,
+        method="GET",
+    )
+    if not isinstance(previous_review, dict) or previous_review.get("code") not in range(200, 300):
+        return _downstream_error(previous_review, "Review could not be retrieved before updating.")
 
     review_response = invoke_http(
         review_url + "/" + user_id + "/" + prod_id,
@@ -114,6 +148,17 @@ def update_review(user_id, prod_id):
 
     rating_response = _update_product_rating(prod_id)
     if isinstance(rating_response, tuple):
+        previous_data = previous_review.get("data")
+        rollback = invoke_http(
+            review_url + "/" + user_id + "/" + prod_id,
+            method="PATCH",
+            json=previous_data,
+        )
+        if not isinstance(rollback, dict) or rollback.get("code") not in range(200, 300):
+            return jsonify({
+                "code": 502,
+                "message": "Review was updated but could not be restored after rating update failure.",
+            }), 502
         return rating_response
 
     return jsonify({

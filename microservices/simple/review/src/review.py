@@ -108,6 +108,34 @@ def get_review(user_id, prod_id):
     }), 200
 
 
+@app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["DELETE"])
+def delete_review(user_id, prod_id):
+    review = Review.query.filter_by(
+        user_id=user_id,
+        prod_id=prod_id,
+    ).first()
+    if not review:
+        return jsonify({
+            "code": 404,
+            "message": "Review not found.",
+        }), 404
+
+    db.session.delete(review)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "code": 500,
+            "message": "An error occurred while deleting the review.",
+        }), 500
+
+    return jsonify({
+        "code": 200,
+        "message": "Review deleted.",
+    }), 200
+
+
 @app.route("/api/v1/reviews", methods=["POST"])
 def add_review():
     data = request.get_json(silent=True)
