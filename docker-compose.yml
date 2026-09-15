@@ -46,6 +46,11 @@ services:
       - "15672:15672"
     volumes: 
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   #################################
   # Venue: Venue microservice
@@ -180,10 +185,11 @@ services:
       - "5010:5010"
     restart: always
     depends_on:
-     - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     environment:
-      rabbit_host: rabbitmq
-      rabbit_port: 5672
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       SENDGRID_API_KEY: "${SENDGRID_API_KEY}"
 
 

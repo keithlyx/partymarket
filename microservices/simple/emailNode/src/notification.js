@@ -7,59 +7,50 @@ const monitorBindingKey = '*.email';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 
 async function receiveConfirmation() {
-  let channel;
   try {
-    channel = await amqp_setup.checkSetup();
+    const channel = await amqp_setup.checkSetup();
+    const queueName = 'email_queue';
 
-    setTimeout(() => {
-      const queueName = 'email_queue';
+    console.log(`[*] Waiting for messages in ${queueName}. To exit press CTRL+C`);
+    await channel.consume(queueName, async (msg) => {
+      if (!msg) {
+        return;
+      }
 
-      console.log(` [*] Waiting for messages in ${queueName}. To exit press CTRL+C`);
-
-      // set up a consumer and start to wait for coming messages
-
-      channel.consume(queueName, (msg) =>{
-              callback(msg)
-              channel.ack(msg)
-      },
-          {noAck: false}
-      )
-
-    }, 1000); // 1 seconds delay
-
-
-    // an implicit loop waiting to receive messages;
-
-    // it doesn't exit by default. Use Ctrl+C in the command window to terminate it.
+      try {
+        const shouldAcknowledge = await callback(msg);
+        if (shouldAcknowledge) {
+          channel.ack(msg);
+        } else {
+          channel.nack(msg, false, false);
+        }
+      } catch (err) {
+        console.error('Email delivery failed; message will be retried:', err.message);
+        channel.nack(msg, false, true);
+      }
+    }, { noAck: false });
   } catch (err) {
-    console.error('Error in receiveConfirmation:', err);
+    console.error('Error starting email consumer:', err.message);
+    process.exitCode = 1;
   }
 }
 
 
 // required signature for the callback; no return
 async function callback(msg) {
-
-  console.log(`\nReceived an email request by ${__filename}`);
-
+  let jsonMsg;
   try {
-    const jsonMsg = JSON.parse(msg.content.toString());
-    console.log("checkkk", jsonMsg);
-    await mail(jsonMsg);
+    jsonMsg = JSON.parse(msg.content.toString());
   } catch (err) {
-    processError(msg.content.toString());
+    processError('Email message was not valid JSON.');
+    return false;
   }
+
+  await mail(jsonMsg);
+  return true;
 }
 function processError(errorMsg) {
-  console.log('Printing the error message:');
-  try {
-    const error = JSON.parse(errorMsg);
-    console.log('--JSON:', error);
-  } catch (err) {
-    console.log('--NOT JSON:', err);
-    console.log('--DATA:', errorMsg);
-  }
-  console.log();
+  console.error(errorMsg);
 }
 
 async function mail(jsonMsg) {
@@ -68,8 +59,6 @@ async function mail(jsonMsg) {
   const emailContent = format_email(jsonMsg);
 
   const sub = jsonMsg.type;
-  console.log(sub);
-  console.log(jsonMsg.user_id);
 
   const message = {
     to: jsonMsg['user_id'],
@@ -81,9 +70,9 @@ async function mail(jsonMsg) {
   // sending email and printing status
   try {
     sgMail.setApiKey(SENDGRID_API_KEY);
-    const response = await sgMail.send(message);
+    await sgMail.send(message);
   } catch (err) {
-    console.log(err);
+    throw new Error(`SendGrid delivery failed: ${err.message}`);
   }
 }
 
@@ -95,7 +84,6 @@ if (require.main === module) {
 
 function format_email(data) {
   const sub = data.type;
-  console.log("check email type", sub)
   if (sub === "order_refund") {
     
     return `
@@ -137,7 +125,6 @@ function format_email(data) {
           </body>
           </html>`
   } else if (sub === "order_confirmation") {
-    console.log("generating order confirm email")
     return `<!DOCTYPE html>
     <html lang="en">
     <head>
