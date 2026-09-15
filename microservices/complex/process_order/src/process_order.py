@@ -153,14 +153,24 @@ def process_order(order: OrderRequest):
     if result.get("code") not in range(200, 300):
         return _downstream_error(result, "Order could not be stored.")
 
-    send_email(order_for_service)
+    notification_queued = True
+    try:
+        send_email(order_for_service)
+    except Exception:
+        logger.exception("Order notification could not be queued")
+        notification_queued = False
+
     delete_status = invoke_http(cart_url + "/" + order["user_id"], method="DELETE")
     if delete_status.get("code") not in range(200, 300):
         return _downstream_error(delete_status, "Order was created but the cart could not be cleared.")
 
     return jsonify({
         "code": 201,
-        "message": "Order created successfully.",
+        "message": (
+            "Order created successfully."
+            if notification_queued
+            else "Order created successfully; notification could not be queued."
+        ),
         "order_id": order_id,
     }), 201
 

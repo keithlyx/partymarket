@@ -6,10 +6,12 @@ from invokes import invoke_http
 import amqp_setup
 import pika
 import json
+import logging
 from decimal import Decimal, InvalidOperation
 
 app = Flask(__name__)
 CORS(app)
+logger = logging.getLogger(__name__)
 
 payment_url = environ.get('PAYMENT_URL') or "http://payment:5008/api/v1/refunds"
 order_url = environ.get('ORDER_URL') or "http://order:5006/api/v1/orders"
@@ -59,7 +61,10 @@ def process_refund(data):
             "message": "Order status could not be updated after the refund.",
         }), order["code"]
 
-    send_email(order["data"])
+    try:
+        send_email(order["data"])
+    except Exception:
+        logger.exception("Refund notification could not be queued")
     return jsonify({
         "code": 200,
         "message": "Refund processed and notification queued.",
