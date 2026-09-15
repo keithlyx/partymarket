@@ -61,22 +61,30 @@ def process_refund(data):
             "message": "Order status could not be updated after the refund.",
         }), order["code"]
 
+    notification_queued = True
     try:
         send_email(order["data"])
     except Exception:
         logger.exception("Refund notification could not be queued")
+        notification_queued = False
     return jsonify({
         "code": 200,
-        "message": "Refund processed and notification queued.",
+        "message": (
+            "Refund processed and notification queued."
+            if notification_queued
+            else "Refund processed; notification could not be queued."
+        ),
     }), 200
 
 def send_email(order_details):
+    email_order = dict(order_details)
     amqp_setup.check_setup()
-    order_details["type"] = "order_refund"
+    email_order["type"] = "order_refund"
     amqp_setup.channel.basic_publish(exchange="email_exchange", routing_key="confirmation.email",
-                                     body=json.dumps(order_details), properties=pika.BasicProperties(delivery_mode=2))
+                                     body=json.dumps(email_order), properties=pika.BasicProperties(delivery_mode=2))
     
 
 if __name__ == "__main__":
     port = int(environ.get('PORT', 5700))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    debug = environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host="0.0.0.0", port=port, debug=debug)
