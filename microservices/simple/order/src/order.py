@@ -157,51 +157,50 @@ def get_orders(user_id):
 @app.route("/api/v1/get_order/<order_id>", methods=['GET'])
 def get_order(order_id):
     # order_id = request.args.get("order_id")
-    order = Orders.query.filter_by(order_id=order_id).first()
-    order = order.json()
-    if order:
-        temp = {
-            "order_id": order["order_id"],
-            "total_amount": order["total_amount"],
-            "order_datetime": order["order_datetime"],
-            "order_status": order["order_status"],
-            "delivery_address": order["delivery_address"],
-            "order_items": [],
-
-        }
-        order_items = OrderItems.query.filter_by(order_id=order_id).all()
-        order_items_json = [detail.json() for detail in order_items]
-
-        order_venue = OrderVenue.query.filter_by(order_id=order_id).all()
-        order_venue_json = [detail.json() for detail in order_venue]
-
-        for item in order_items_json:
-            temp["order_items"].append({
-                "item_id": item["item_id"],
-                "item_quantity": item["item_quantity"],
-                "item_price": item["item_price"]
-            })
-
-        for venue in order_venue_json:
-            temp["venue"] = {
-                "venue_id": venue["venue_id"],
-                "venue_price": venue["venue_price"],
-                "venue_datetime": venue["venue_datetime"]
-            }
-        print(temp)
+    order_record = Orders.query.filter_by(order_id=order_id).first()
+    if not order_record:
         return jsonify(
             {
-                "code": 200,
-                "order": temp
+                "code": 404,
+                "order_id": order_id,
+                "message": f"No order with id {order_id} found."
             }
-        ), 200
+        ), 404
+
+    order = order_record.json()
+    temp = {
+        "order_id": order["order_id"],
+        "total_amount": order["total_amount"],
+        "order_datetime": order["order_datetime"],
+        "order_status": order["order_status"],
+        "delivery_address": order["delivery_address"],
+        "order_items": [],
+    }
+    order_items = OrderItems.query.filter_by(order_id=order_id).all()
+    order_items_json = [detail.json() for detail in order_items]
+
+    order_venue = OrderVenue.query.filter_by(order_id=order_id).all()
+    order_venue_json = [detail.json() for detail in order_venue]
+
+    for item in order_items_json:
+        temp["order_items"].append({
+            "item_id": item["item_id"],
+            "item_quantity": item["item_quantity"],
+            "item_price": item["item_price"]
+        })
+
+    for venue in order_venue_json:
+        temp["venue"] = {
+            "venue_id": venue["venue_id"],
+            "venue_price": venue["venue_price"],
+            "venue_datetime": venue["venue_datetime"]
+        }
     return jsonify(
         {
-            "code": 404,
-            "order_id": order_id,
-            "message": f"No order with id {order_id} found."
+            "code": 200,
+            "order": temp
         }
-    ), 404
+    ), 200
 
 
 @app.route("/api/v1/create_order", methods=['POST'])
