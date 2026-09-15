@@ -41,7 +41,6 @@ def catalogue_detail(catalogue_id):
     else:
         # If either key doesn't exist, return an error message
         catalogue_review = []
-        print("No reviews made for this item yet.")
 
     return render_template("catalogue-detail.html", title="Catalogue Detail", catalogue_data=catalogue_data['data'], catalogue_review=catalogue_review)
 
@@ -58,7 +57,6 @@ def venue_detail(venue_id):
     else:
         # If either key doesn't exist, return an error message
         venue_review = []
-        print("No reviews made for this venue yet.")
 
 
     return render_template("venue-detail.html", title="Venue Detail", venue_data=venue_data['data'], venue_review=venue_review)
@@ -117,7 +115,6 @@ def cart():
     # setting cookie
     resp.set_cookie('cart_details', json.dumps(combined_dict))
 
-    # print(get_cart_cookie('cart_details'))
     
     return resp
 
@@ -140,7 +137,6 @@ def add_to_cart(prod_id):
                 venue_datetime = request.form['venue_datetime']
                 result_json_to_return["venue_datetime"] = venue_datetime
 
-            print(result_json_to_return)
             invoke_http("http://localhost:5005/api/v1/carts/" + user_id + "/products/" + prod_id, method='POST', json=result_json_to_return)
 
             # for redirection
@@ -208,7 +204,6 @@ def decrease_cart_quantity(prod_id):
 # =========================== ORDERS ===========================
 @app.route('/order-logs', methods=['GET', "POST"])
 def order_logs():
-    print("=========================== orderlogs view ===========================")
     order_details = []
     if request.method == "GET":
         if current_user.is_authenticated:
@@ -221,7 +216,6 @@ def order_logs():
             if order_data['code'] == 200:                
                 order_details = order_data["orders"]
                 
-                print(order_details)
             else:
                 flash("No orders found!", "info")
                 return redirect(url_for('cart'))
@@ -232,12 +226,9 @@ def order_logs():
 # order details view
 @app.route('/order-logs/<order_id>', methods=['GET', "POST"])
 def order_details(order_id):
-    print("=========================== order details view ===========================")
     user_id = current_user.user_id_email
 
     order_data = invoke_http("http://localhost:5300/api/v1/orders/" + order_id, method="GET")
-    print(order_data)
-    print("============================================")
     user_review_data = invoke_http("http://localhost:5007/api/v1/reviews", method="GET", params={"user_id": user_id})
 
     order_data[order_id]["total_amount"] = as_money(order_data[order_id]["total_amount"])
@@ -330,44 +321,31 @@ def add_review(prod_id):
             rating = int(request.form['rating'])
             review = request.form['review']
 
-            print("------------------------------------------------------")
-            print(rating, review)
-            print(type(rating))
             review_data = {"rating": rating, "rating_desc": review}
-            print(type(review_data))
 
             # call add_review microservice
             review_data["user_id"] = user_id
             review_data["prod_id"] = prod_id
             response = invoke_http('http://localhost:5400/api/v1/reviews', method='POST', json=review_data)
-            print(response)
             if prod_id[0] == "i":
                 if response['code'] in range(200, 401):
-                    print(response)
                     flash(f'Your review has been added!', 'success')
                     return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
                 else:
-                    print(response)
-                    # flash(f'Your review has not been added!', 'warning')
                     return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
             else:
                 if response['code'] in range(200, 401):
-                    print(response)
                     flash(f'Your review has been added!', 'success')
                     return redirect(url_for('venue_detail', venue_id=prod_id))
                 else:
-                    print(response)
-                    # flash(f'Your review has not been added!', 'warning')
                     return redirect(url_for('venue_detail', venue_id=prod_id))
 
 @app.route('/review/edit_review/<user_id>/<prod_id>', methods=['POST'])
 def update_review(user_id, prod_id):
     result_json_to_return = {}
-    print("HELLOOOOOOOOOOOOOOOOOOOOO")
     rating = int(request.form["rating"])
     rating_desc = request.form["review"]
 
-    print(rating, rating_desc)
 
     result_json_to_return["prod_id"] = prod_id
     result_json_to_return["user_id"] = user_id
@@ -375,7 +353,6 @@ def update_review(user_id, prod_id):
     result_json_to_return["rating_desc"] = rating_desc
 
     response = invoke_http("http://localhost:5400/api/v1/reviews/" + user_id + "/" + prod_id, method="PATCH", json=result_json_to_return)
-    print(response)
 
     if prod_id[0] == "i":
         return redirect(url_for('catalogue_detail', catalogue_id=prod_id))

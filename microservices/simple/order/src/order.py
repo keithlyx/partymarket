@@ -280,17 +280,12 @@ def create_order():
                                 item_quantity=item["item_quantity"],
                                 item_price=item["item_price"])
         db.session.add(order_item)
-    # print(data["venue"])
     if 'venue' in data:
         order_venue = OrderVenue(order_id=data["order_id"], venue_id=data["venue"]["venue_id"],
                                 venue_price=data["venue"]["venue_price"],
                                 venue_datetime=data["venue"]["venue_datetime"])
 
         db.session.add(order_venue)
-    # if order_venue in db.session.new:
-    #     print('The order has been added to the session')
-    # else:
-    #     print('The order has not been added to the session')
     try:
         db.session.commit()
         return jsonify({
@@ -342,5 +337,5 @@ def update_order(order_id):
 
 
 if __name__ == '__main__':
-    port = 5006 or int(environ.get('PORT', 5006))
+    port = int(environ.get('PORT', 5006))
     app.run(host="0.0.0.0", port=port, debug=True)

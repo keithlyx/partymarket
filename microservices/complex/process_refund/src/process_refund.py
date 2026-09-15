@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from os import environ, path
+from os import environ
 from invokes import invoke_http
 import amqp_setup
 import pika
@@ -66,17 +66,12 @@ def process_refund(data):
     }), 200
 
 def send_email(order_details):
-    # 3. send order to email microservice
-    # Invoke the email microservice
-    print('\n-----Sending to email queue-----')
     amqp_setup.check_setup()
     order_details["type"] = "order_refund"
     amqp_setup.channel.basic_publish(exchange="email_exchange", routing_key="confirmation.email",
                                      body=json.dumps(order_details), properties=pika.BasicProperties(delivery_mode=2))
-    print("\n-----------Sent to email queue-----------\n")
     
 
 if __name__ == "__main__":
-    print("This is flask " + path.basename(__file__) + " for processing refunds...")
-    port = 5700 or int(environ.get('PORT', 5700))
+    port = int(environ.get('PORT', 5700))
     app.run(host="0.0.0.0", port=port, debug=True)

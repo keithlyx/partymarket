@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 
 from flask_cors import CORS
-from os import environ, path
+from os import environ
 from invokes import invoke_http
 
 catalogue_url = environ.get('catalogue_URL') or "http://catalogue:5004/api/v1/catalogue"
@@ -94,7 +94,6 @@ def get_orders():
 @app.route("/api/v1/orders/<order_id>", methods=["GET"])
 def get_order_by_id(order_id):
     result_json_to_return = {}
-    print("retrieving order for order_id: " + order_id)
     order_data_user_id = invoke_http(order_url + "/" + order_id, method="GET")
     if order_data_user_id["code"] not in range(200, 300):
         return jsonify({
@@ -138,6 +137,5 @@ def get_order_by_id(order_id):
 
 
 if __name__ == "__main__":
-    print("This is flask " + path.basename(__file__) + " for processing orders...")
-    port = 5300 or int(environ.get('PORT', 5300))
+    port = int(environ.get('PORT', 5300))
     app.run(host="0.0.0.0", port=port, debug=True)

@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from os import environ, path
+from os import environ
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
@@ -178,6 +178,5 @@ def send_email(order: Dict[str, Any]) -> None:
 
 
 if __name__ == "__main__":
-    print("This is flask " + path.basename(__file__) + " for processing orders...")
     port = int(environ.get("PORT", 5200))
     app.run(host="0.0.0.0", port=port)

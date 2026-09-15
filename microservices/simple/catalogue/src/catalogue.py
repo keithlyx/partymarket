@@ -125,5 +125,5 @@ def update_item_rating(item_id):
     ), 404
 
 if __name__ == '__main__':
-    port = 5004 or int(environ.get('PORT', 5004))
+    port = int(environ.get('PORT', 5004))
     app.run(host="0.0.0.0",port=port, debug=True)

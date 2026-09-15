@@ -97,7 +97,6 @@ def create_refund():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",port=5008,debug=True)
-    #print("\nThis is " + os.path.basename(__file__), end='')
-    #print(": monitoring routing key '{}' in exchange '{}' ...".format(monitorBindingKey, amqp_setup.exchangename))
+    port = int(environ.get("PORT", 5008))
+    app.run(host="0.0.0.0", port=port, debug=True)
    

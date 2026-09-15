@@ -124,5 +124,5 @@ def update_venue_rating(venue_id):
     ), 404
 
 if __name__ == '__main__':
-    port = 5003 or int(environ.get('PORT', 5003))
+    port = int(environ.get('PORT', 5003))
     app.run(host="0.0.0.0",port=port, debug=True)

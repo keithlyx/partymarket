@@ -1,4 +1,4 @@
-from os import environ, path
+from os import environ
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -148,6 +148,5 @@ def _validate_review(data, require_identity=True):
 
 
 if __name__ == "__main__":
-    print("This is flask " + path.basename(__file__) + " for processing all reviews.")
     port = int(environ.get("PORT", 5400))
     app.run(host="0.0.0.0", port=port)
