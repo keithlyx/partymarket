@@ -7,14 +7,12 @@ import pika
 import json
 
 import datetime
-import threading
 
 payment_URL = environ.get('payment_URL') or 'http://payment:5008/api/v1/stripepay'
 cart_URL = environ.get('cart_URL') or 'http://cart:5005/api/v1'
 order_URL = environ.get('order_URL') or 'http://order:5006/api/v1/create_order'
 
 app = Flask(__name__)
-app.config["THREADING"] = True
 
 CORS(app)
 
@@ -84,8 +82,7 @@ def processOrder(order):
     print("Order created successfully: ", order_id)
     # send email
     print("\nSending email to user: ", order["user_id"])
-    amqp_thread = threading.Thread(target=sendEmail(order))
-    amqp_thread.start()
+    sendEmail(order)
     print("\ndeleting cart for user: ", order["user_id"])
     delete_status = invoke_http(cart_URL+"/delete_cart/"+order["user_id"], method='POST')
     if delete_status["code"] not in range(200, 300):

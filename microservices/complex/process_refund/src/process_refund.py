@@ -6,12 +6,9 @@ from invokes import invoke_http
 import amqp_setup
 import pika
 import json
-import threading
 
 app = Flask(__name__)
-CORS(app) 
-
-app.config["THREADING"] = True
+CORS(app)
 
 payment_URL = environ.get('payment_URL') or "http://payment:5008/api/v1/striperefund"
 order_URL = environ.get('order_URL') or "http://order:5006/api/v1/"
@@ -64,8 +61,7 @@ def processRefund(order_id):
             "message": "Error in order microservice while updating status" + order["message"]
         }), order["code"]
     print("-----Sending to email queue-----")
-    amqp_thread = threading.Thread(target=sendEmail(order['data']))
-    amqp_thread.start()
+    sendEmail(order['data'])
     return jsonify({
         "code": 200,
         "message": "Refund process ends here sent to email queue"
