@@ -226,7 +226,7 @@ def order_logs():
             
 
         if order_data['code'] == 200:
-            order_details = order_data["orders"]
+            order_details = order_data["data"]["orders"]
         else:
             flash("No orders found!", "info")
             return redirect(url_for('cart'))
@@ -243,21 +243,24 @@ def order_details(order_id):
     order_data = invoke_http(VIEW_ORDER_URL + "/api/v1/orders/" + order_id, method="GET")
     user_review_data = invoke_http(REVIEW_URL + "/api/v1/reviews", method="GET", params={"user_id": user_id})
 
-    if (order_data.get("code") != 200
-            or order_id not in order_data
-            or order_data[order_id].get("user_id") != user_id):
+    if order_data.get("code") != 200:
         flash("Order could not be found.", "danger")
         return redirect(url_for('order_logs'))
 
-    order_data[order_id]["total_amount"] = as_money(order_data[order_id]["total_amount"])
-    for item in order_data[order_id]["order_items"]:
+    order = order_data.get("data", {}).get("order")
+    if not order or order.get("user_id") != user_id:
+        flash("Order could not be found.", "danger")
+        return redirect(url_for('order_logs'))
+
+    order["total_amount"] = as_money(order["total_amount"])
+    for item in order["order_items"]:
         item["item_price"] = as_money(item["item_price"])
-    if "venue" in order_data[order_id]:
-        order_data[order_id]["venue"]["venue_price"] = as_money(order_data[order_id]["venue"]["venue_price"])
+    if "venue" in order:
+        order["venue"]["venue_price"] = as_money(order["venue"]["venue_price"])
     
 
         # order_items: arr
-    for item in order_data[order_id]["order_items"]:
+    for item in order["order_items"]:
         item["isReviewed"] = ""
         item_id = item["item_id"]
         if user_review_data["code"] in range(200, 300):
@@ -272,9 +275,9 @@ def order_details(order_id):
                     break
     
     # venue: venue_id
-    if "venue" in order_data[order_id]:
-        order_venue_id = order_data[order_id]["venue"]["venue_id"]
-        venue_data = order_data[order_id]["venue"]
+    if "venue" in order:
+        order_venue_id = order["venue"]["venue_id"]
+        venue_data = order["venue"]
         venue_data["isReviewed"] = ""
         if user_review_data["code"] in range(200, 300):
             for review in user_review_data["data"]["reviews"]:
@@ -287,7 +290,8 @@ def order_details(order_id):
                     venue_data["isReviewed"] = isReviewed_dict
                     break    
         
-    return render_template("order-details.html", title="Order Details",user_id=user_id, order_data=order_data, order_id=order_id)
+    return render_template("order-details.html", title="Order Details", user_id=user_id,
+                           order_data={order_id: order}, order_id=order_id)
 
 
 @app.route('/checkout', methods=['GET', 'POST'])

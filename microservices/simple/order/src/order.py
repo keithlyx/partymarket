@@ -222,6 +222,7 @@ def get_order(order_id):
     order = order_record.json()
     temp = {
         "order_id": order["order_id"],
+        "user_id": order["user_id"],
         "total_amount": order["total_amount"],
         "order_datetime": order["order_datetime"],
         "order_status": order["order_status"],
