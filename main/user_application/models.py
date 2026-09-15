@@ -21,4 +21,3 @@ class Users(db.Model, UserMixin):
 
     def __repr__(self):
         return f"Users('{self.name}', '{self.user_id_email}')"
-
