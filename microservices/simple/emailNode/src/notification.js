@@ -6,6 +6,7 @@ const process = require('process');
 const monitorBindingKey = '*.email';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
 const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL;
+const SUPPORTED_EVENT_TYPES = ['order_confirmation', 'order_refund'];
 
 function escapeHtml(value) {
   const entities = {
@@ -19,20 +20,31 @@ function escapeHtml(value) {
 }
 
 function validateMessage(data) {
-  if (!data || typeof data !== 'object' || !['order_confirmation', 'order_refund'].includes(data.type)) {
+  if (!data || typeof data !== 'object' || !SUPPORTED_EVENT_TYPES.includes(data.type)) {
     return 'Email event has an unsupported type.';
   }
-  if (typeof data.user_id !== 'string' || !data.user_id.trim() || typeof data.order_id !== 'string' || !data.order_id.trim()) {
+  if (!isNonEmptyString(data.user_id) || !isNonEmptyString(data.order_id)) {
     return 'Email event is missing a recipient or order ID.';
   }
-  if (data.type === 'order_confirmation' && (!Array.isArray(data.order_items) || data.total_amount === undefined)) {
+  if (data.type === 'order_confirmation' && !hasOrderDetails(data)) {
     return 'Order confirmation event is missing order details.';
   }
   return null;
 }
 
+function isNonEmptyString(value) {
+  return typeof value === 'string' && Boolean(value.trim());
+}
+
+function hasOrderDetails(data) {
+  return Array.isArray(data.order_items)
+    && data.order_items.every(item => item && typeof item === 'object')
+    && data.total_amount !== undefined;
+}
+
 async function receiveConfirmation() {
   try {
+    configureMailer();
     const channel = await amqp_setup.checkSetup();
     const queueName = 'email_queue';
 
@@ -61,7 +73,6 @@ async function receiveConfirmation() {
 }
 
 
-// required signature for the callback; no return
 async function callback(msg) {
   let jsonMsg;
   try {
@@ -77,30 +88,29 @@ async function callback(msg) {
     return false;
   }
 
-  await mail(jsonMsg);
+  await sendEmail(jsonMsg);
   return true;
 }
 function processError(errorMsg) {
   console.error(errorMsg);
 }
 
-async function mail(jsonMsg) {
+async function sendEmail(jsonMsg) {
   // email address, subject and body
   
-  const emailContent = format_email(jsonMsg);
+  const emailContent = formatEmail(jsonMsg);
 
-  const sub = jsonMsg.type;
+  const subject = jsonMsg.type;
 
   const message = {
-    to: jsonMsg['user_id'],
+    to: jsonMsg.user_id,
     from: SENDGRID_FROM_EMAIL,
-    subject: sub,
+    subject,
     html: emailContent,
   };
 
   // sending email and printing status
   try {
-    sgMail.setApiKey(SENDGRID_API_KEY);
     await sgMail.send(message);
   } catch (err) {
     throw new Error(`SendGrid delivery failed: ${err.message}`);
@@ -113,7 +123,7 @@ if (require.main === module) {
   
 }
 
-function format_email(data) {
+function formatEmail(data) {
   const sub = data.type;
   if (sub === "order_refund") {
     
@@ -148,7 +158,7 @@ function format_email(data) {
           </head>
           <body>
             <div class="container">
-              <h1>Order Refund'</h1>
+              <h1>Order Refund</h1>
               <p>Dear ${escapeHtml(data.user_id)},</p>
               <p>Your order #${escapeHtml(data.order_id)} has been cancelled.</p>
               <p>Your refund has been processed and will be credited to your account soon.</p>
@@ -248,5 +258,12 @@ function format_email(data) {
     </body>
     </html>`;
   }
-  return null;
+  throw new Error(`Unsupported email event type: ${sub}`);
+}
+
+function configureMailer() {
+  if (!isNonEmptyString(SENDGRID_API_KEY) || !isNonEmptyString(SENDGRID_FROM_EMAIL)) {
+    throw new Error('SENDGRID_API_KEY and SENDGRID_FROM_EMAIL must be configured.');
+  }
+  sgMail.setApiKey(SENDGRID_API_KEY);
 }
