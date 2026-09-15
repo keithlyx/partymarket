@@ -24,14 +24,14 @@ class Item(db.Model):
     review_count = db.Column(db.Integer, nullable=False)
 
     def __init__(self, item_id, category_name, item_name, item_price, item_img, item_description, item_rating, review_count):
-        self.item_id = item_id,
-        self.category_name  = category_name,
-        self.item_name = item_name,
-        self.item_price = item_price,
-        self.item_img = item_img,
-        self.item_description = item_description,
-        self.item_rating = item_rating ,
-        self.review_count = review_count 
+        self.item_id = item_id
+        self.category_name = category_name
+        self.item_name = item_name
+        self.item_price = item_price
+        self.item_img = item_img
+        self.item_description = item_description
+        self.item_rating = item_rating
+        self.review_count = review_count
 
     def json(self):
         return {"item_id": self.item_id, "category_name": self.category_name, "item_name" : self.item_name, "item_price" : self.item_price, "item_img" : self.item_img, "item_description": self.item_description, "item_rating" : self.item_rating, "review_count" : self.review_count}
@@ -85,7 +85,7 @@ def find_by_id(item_id):
 # get item by category
 @app.route("/api/v1/catalogue/category/<string:category>")
 def find_by_category(category):
-    items = Item.query.filter_by(category=category).all()
+    items = Item.query.filter_by(category_name=category).all()
     if items:
         return jsonify(
             {
