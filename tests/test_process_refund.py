@@ -34,6 +34,7 @@ def test_refund_uses_stored_amount_and_checks_owner(monkeypatch):
     assert response.status_code == 200
     payment_call = next(call for call in calls if "refunds" in call[0])
     assert payment_call[2]["amount_cents"] == 1234
+    assert payment_call[2]["idempotency_key"] == "refund:ch_123"
 
 
 def test_refund_rejects_a_different_owner(monkeypatch):

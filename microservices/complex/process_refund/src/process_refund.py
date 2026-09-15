@@ -74,6 +74,7 @@ def process_refund(data):
     refund = invoke_http(payment_url, method="POST", json={
         "charge_id": order_id,
         "amount_cents": data["amount_cents"],
+        "idempotency_key": "refund:" + order_id,
     })
     if refund["code"] not in range(200, 300):
         return jsonify({
