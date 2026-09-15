@@ -3,28 +3,15 @@ import json
 import logging
 import uuid
 from os import environ
-from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional, Tuple, TypedDict
+from decimal import Decimal
+from typing import Any, Dict, Optional, Tuple
 
 import pika
 from flask import Flask, jsonify, request
 
 import amqp_setup
 from invokes import invoke_http
-
-
-class OrderItem(TypedDict):
-    item_id: str
-    item_quantity: int
-    item_price: Any
-
-
-class OrderRequest(TypedDict, total=False):
-    user_id: str
-    token: str
-    idempotency_key: str
-    delivery_address: str
-    delivery_datetime: str
+from order_builder import OrderBuildError, build_authoritative_order
 
 
 payment_url = environ.get("PAYMENT_URL") or "http://payment:5008/api/v1/payments"
@@ -90,130 +77,16 @@ def create_order():
         }), 500
 
 
-def _build_authoritative_order(order: OrderRequest):
-    """Build an order from cart and catalogue data instead of browser prices."""
-    cart = invoke_http(cart_url + "/" + order["user_id"], method="GET")
-    if cart.get("code") not in range(200, 300):
-        return None, _downstream_error(cart, "Cart could not be retrieved.")
-
-    cart_data = cart.get("data", {})
-    if not isinstance(cart_data, dict):
-        return None, (jsonify({
-            "code": 502,
-            "message": "Cart service returned invalid data.",
-        }), 502)
-    cart_items = cart_data.get("cart_items", [])
-    cart_venues = cart_data.get("cart_venues", [])
-    if not isinstance(cart_items, list) or not isinstance(cart_venues, list):
-        return None, (jsonify({
-            "code": 502,
-            "message": "Cart service returned invalid data.",
-        }), 502)
-    if not cart_items and not cart_venues:
-        return None, (jsonify({
-            "code": 400,
-            "message": "Cannot create an order from an empty cart.",
-        }), 400)
-
-    total_amount = Decimal("0.00")
-    order_items = []
-    for cart_item in cart_items:
-        item_id = cart_item.get("item_id")
-        quantity = cart_item.get("quantity")
-        if not isinstance(item_id, str) or not item_id.strip() or not isinstance(quantity, int) or quantity < 1:
-            return None, (jsonify({
-                "code": 502,
-                "message": "Cart service returned invalid item data.",
-            }), 502)
-
-        item_response = invoke_http(catalogue_url + "/" + item_id, method="GET")
-        if item_response.get("code") not in range(200, 300):
-            return None, _downstream_error(item_response, "Catalogue data could not be retrieved.")
-
-        item_data = item_response.get("data", {})
-        if not isinstance(item_data, dict):
-            return None, (jsonify({
-                "code": 502,
-                "message": "Catalogue service returned invalid item data.",
-            }), 502)
-        try:
-            item_price = Decimal(str(item_data["item_price"]))
-        except (KeyError, InvalidOperation, ValueError):
-            return None, (jsonify({
-                "code": 502,
-                "message": "Catalogue service returned invalid price data.",
-            }), 502)
-        if not item_price.is_finite() or item_price < 0 or item_price.as_tuple().exponent < -2:
-            return None, (jsonify({
-                "code": 502,
-                "message": "Catalogue service returned an invalid item price.",
-            }), 502)
-
-        total_amount += item_price * quantity
-        order_items.append({
-            "item_id": item_id,
-            "item_name": item_data.get("item_name", item_id),
-            "item_quantity": quantity,
-            "item_price": f"{item_price:.2f}",
-        })
-
-    venue = None
-    if cart_venues:
-        cart_venue = cart_venues[0]
-        venue_id = cart_venue.get("venue_id")
-        venue_datetime = cart_venue.get("datetime")
-        if not isinstance(venue_id, str) or not venue_id.strip() or not isinstance(venue_datetime, str) or not venue_datetime.strip():
-            return None, (jsonify({
-                "code": 502,
-                "message": "Cart service returned invalid venue data.",
-            }), 502)
-
-        venue_response = invoke_http(venue_url + "/" + venue_id, method="GET")
-        if venue_response.get("code") not in range(200, 300):
-            return None, _downstream_error(venue_response, "Venue data could not be retrieved.")
-
-        venue_data = venue_response.get("data", {})
-        if not isinstance(venue_data, dict):
-            return None, (jsonify({
-                "code": 502,
-                "message": "Venue service returned invalid venue data.",
-            }), 502)
-        try:
-            venue_price = Decimal(str(venue_data["venue_price"]))
-        except (KeyError, InvalidOperation, ValueError):
-            return None, (jsonify({
-                "code": 502,
-                "message": "Venue service returned invalid price data.",
-            }), 502)
-        if not venue_price.is_finite() or venue_price < 0 or venue_price.as_tuple().exponent < -2:
-            return None, (jsonify({
-                "code": 502,
-                "message": "Venue service returned an invalid venue price.",
-            }), 502)
-
-        total_amount += venue_price
-        venue = {
-            "venue_id": venue_id,
-            "venue_name": venue_data.get("venue_name", venue_id),
-            "venue_price": f"{venue_price:.2f}",
-            "venue_datetime": venue_datetime,
-        }
-
-    return {
-        "user_id": order["user_id"],
-        "total_amount": f"{total_amount:.2f}",
-        "token": order["token"],
-        "delivery_address": order["delivery_address"],
-        "delivery_datetime": order["delivery_datetime"],
-        "items": order_items,
-        **({"venue": venue} if venue else {}),
-    }, None
-
-
-def process_order(order: OrderRequest):
-    authoritative_order, error_response = _build_authoritative_order(order)
-    if error_response:
-        return error_response
+def process_order(order: Dict[str, Any]):
+    try:
+        authoritative_order = build_authoritative_order(
+            order,
+            fetch_cart=lambda user_id: invoke_http(cart_url + "/" + user_id, method="GET"),
+            fetch_catalogue_item=lambda item_id: invoke_http(catalogue_url + "/" + item_id, method="GET"),
+            fetch_venue=lambda venue_id: invoke_http(venue_url + "/" + venue_id, method="GET"),
+        )
+    except OrderBuildError as error:
+        return jsonify({"code": error.status_code, "message": error.message}), error.status_code
 
     amount_cents = int(Decimal(authoritative_order["total_amount"]) * 100)
     idempotency_key = order.get("idempotency_key") or uuid.uuid4().hex
@@ -240,7 +113,6 @@ def process_order(order: OrderRequest):
     order_for_service = dict(authoritative_order)
     order_for_service["order_id"] = order_id
     order_for_service["order_datetime"] = datetime.datetime.now().isoformat()
-    order_for_service["order_items"] = order_for_service.pop("items")
     order_for_service["receipt_url"] = receipt_url
     order_for_service.pop("token", None)
     order_for_service.pop("idempotency_key", None)
