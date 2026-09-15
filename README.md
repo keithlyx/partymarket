@@ -1,8 +1,8 @@
 # Party Planning Market
 
-Party Planning Market is an event-booking platform where users can browse party items and venues, manage a cart, place orders, view order status, request refunds, and submit reviews.
+This was a 2023/24 team project. We built an event-booking platform where users can browse party items and venues, manage a cart, place orders, view order status, request refunds, and submit reviews.
 
-The platform uses Flask domain services, workflow services, RabbitMQ, Stripe, SendGrid, MySQL, and Docker Compose. The project started as a university microservices project and has since been revisited with stronger API, validation, database, and error-handling practices.
+The platform uses Flask domain services, workflow services, RabbitMQ, Stripe, SendGrid, MySQL, and Docker Compose. This repository is a maintained public copy; the current branch adds versioned APIs, environment-based configuration, validation, focused tests, and safer payment and notification handling while keeping the project’s overall scope intact.
 
 ## Architecture
 
@@ -17,6 +17,18 @@ Order and refund events --> RabbitMQ --> Notification service --> SendGrid
 Payment and refund requests --> Stripe
 ```
 
+![System architecture](resources/architecture.png)
+
+The web application is the browser-facing entry point. It retrieves cart and catalogue data through the services, calculates order totals on the server, and forwards authenticated checkout and refund requests to the relevant workflows. Service ports are bound to localhost for the local Compose setup.
+
+### Selected workflows
+
+![Submit order workflow](resources/SubmitOrder.png)
+
+![Cancellation workflow](resources/Cancellation.png)
+
+![Review workflow](resources/Review1.png)
+
 The Compose setup uses one MySQL server with separate logical schemas for catalogue, cart, orders, reviews, venue, and users. Each service receives its own database URL and owns only its schema. This keeps the local setup practical while preserving service data ownership.
 
 ## Project Structure
@@ -30,7 +42,7 @@ The Compose setup uses one MySQL server with separate logical schemas for catalo
 ## Running Locally
 
 1. Copy `.env.example` to `.env`.
-2. Set a local `MYSQL_ROOT_PASSWORD` and provide Stripe and SendGrid test credentials if payment or email flows are being exercised.
+2. Set a local `MYSQL_ROOT_PASSWORD` and provide Stripe and SendGrid test credentials if payment or email flows are being exercised. Set `SENDGRID_FROM_EMAIL` to a verified sender if email delivery is enabled.
 3. Start the services:
 
 ```bash
@@ -47,28 +59,35 @@ pip install -r requirements.txt
 python app.py
 ```
 
-When running the web application outside Docker, set `USER_DATABASE_URL` to the host-accessible users schema URL from `.env`.
+When running the web application outside Docker, set `USER_DATABASE_URL` to the host-accessible users schema URL from `.env`. The web application is intended to be the browser-facing entry point; the other services are local development services and should not be exposed directly to the internet.
 
 ## API Overview
 
-Backend services use resource-oriented `/api/v1` endpoints:
+All backend service paths begin with `/api/v1`.
 
-- `GET /catalogue` and `GET /catalogue/<item_id>` - catalogue data
-- `PATCH /catalogue/<item_id>/rating` - catalogue rating update
-- `GET /venues` and `GET /venues/<venue_id>` - venue data
-- `PATCH /venues/<venue_id>/rating` - venue rating update
-- `GET /carts/<user_id>` - retrieve a cart
-- `POST /carts/<user_id>/products/<product_id>` - add a cart product
-- `PATCH /carts/<user_id>/items/<item_id>` - set item quantity
-- `DELETE /carts/<user_id>/products/<product_id>` - remove a cart product
-- `DELETE /carts/<user_id>` - clear a cart
-- `GET /orders?user_id=<user_id>` and `GET /orders/<order_id>` - order data
-- `POST /orders` - create an order through the order workflow
-- `PATCH /orders/<order_id>` - update order status
-- `GET /reviews?product_id=<product_id>` or `GET /reviews?user_id=<user_id>` - review data
-- `POST /reviews` and `PATCH /reviews/<user_id>/<product_id>` - create or edit reviews
-- `POST /payments` - create a Stripe payment
-- `POST /refunds` - process a Stripe refund
+The browser-facing web application provides:
+
+- `POST /api/v1/checkout` - submit a payment token and delivery details for the current user’s cart
+- `POST /api/v1/refunds` - request a refund for an order owned by the current user
+
+The internal service endpoints include:
+
+- `GET /api/v1/catalogue` and `GET /api/v1/catalogue/<item_id>` - catalogue data
+- `PATCH /api/v1/catalogue/<item_id>/rating` - catalogue rating update
+- `GET /api/v1/venues` and `GET /api/v1/venues/<venue_id>` - venue data
+- `PATCH /api/v1/venues/<venue_id>/rating` - venue rating update
+- `GET /api/v1/carts/<user_id>` - retrieve a cart
+- `POST /api/v1/carts/<user_id>/products/<product_id>` - add a cart product
+- `PATCH /api/v1/carts/<user_id>/items/<item_id>` - set item quantity
+- `DELETE /api/v1/carts/<user_id>/products/<product_id>` - remove a cart product
+- `DELETE /api/v1/carts/<user_id>` - clear a cart
+- `GET /api/v1/orders?user_id=<user_id>` and `GET /api/v1/orders/<order_id>` - order data
+- `POST /api/v1/orders` - create an order through the order workflow
+- `PATCH /api/v1/orders/<order_id>` - update order status
+- `GET /api/v1/reviews?product_id=<product_id>` or `GET /api/v1/reviews?user_id=<user_id>` - review data
+- `POST /api/v1/reviews` and `PATCH /api/v1/reviews/<user_id>/<product_id>` - create or edit reviews
+- `POST /api/v1/payments` - create a Stripe payment
+- `POST /api/v1/refunds` - process a Stripe refund through the payment service
 
 Money is stored in MySQL as `DECIMAL(10,2)` and sent to Stripe as integer cents. API responses represent monetary values as two-decimal strings to avoid floating-point ambiguity.
 
@@ -77,6 +96,7 @@ Money is stored in MySQL as `DECIMAL(10,2)` and sent to Stripe as integer cents.
 The tests use in-memory SQLite fixtures only to isolate service behavior. Production and Compose configuration require MySQL URLs.
 
 ```bash
+python -m pip install -r requirements-dev.txt
 python -m pytest -q
 python -m compileall -q main microservices
 docker compose config --quiet
