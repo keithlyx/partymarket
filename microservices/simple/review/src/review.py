@@ -1,5 +1,6 @@
 from datetime import datetime
 from os import environ
+from typing import Any, Optional, TypedDict
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -12,6 +13,32 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 CORS(app)
+
+
+class ReviewPayload(TypedDict):
+    user_id: str
+    prod_id: str
+    rating: int
+    rating_desc: str
+
+
+def _validate_review(data: Any, require_identity: bool = True) -> Optional[str]:
+    if not isinstance(data, dict):
+        return "Request payload must be a JSON object."
+    required_fields = ["rating", "rating_desc"]
+    if require_identity:
+        required_fields.extend(["user_id", "prod_id"])
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return "Missing required review fields: " + ", ".join(missing_fields) + "."
+    for field in ("user_id", "prod_id") if require_identity else ():
+        if not isinstance(data[field], str) or not data[field].strip():
+            return field + " must be a non-empty string."
+    if isinstance(data["rating"], bool) or not isinstance(data["rating"], int) or not 1 <= data["rating"] <= 5:
+        return "rating must be an integer from one to five."
+    if not isinstance(data["rating_desc"], str) or not data["rating_desc"].strip():
+        return "rating_desc must be a non-empty string."
+    return None
 
 
 class Review_db(db.Model):
@@ -90,12 +117,9 @@ def get_review(user_id, prod_id):
 @app.route("/api/v1/reviews", methods=["POST"])
 def add_review():
     data = request.get_json(silent=True)
-    required_fields = ("user_id", "prod_id", "rating", "rating_desc")
-    if not isinstance(data, dict) or any(field not in data for field in required_fields):
-        return jsonify({
-            "code": 400,
-            "message": "Request must include user_id, prod_id, rating, and rating_desc.",
-        }), 400
+    validation_error = _validate_review(data)
+    if validation_error:
+        return jsonify({"code": 400, "message": validation_error}), 400
 
     existing_review = Review_db.query.filter_by(
         user_id=data["user_id"],
@@ -112,7 +136,7 @@ def add_review():
         prod_id=data["prod_id"],
         rating=data["rating"],
         rating_desc=data["rating_desc"],
-        created_date=datetime.now(),
+        created_date=datetime.now().isoformat(),
     )
     db.session.add(review)
     try:
@@ -133,11 +157,9 @@ def add_review():
 @app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["PATCH"])
 def update_review(user_id, prod_id):
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or "rating" not in data or "rating_desc" not in data:
-        return jsonify({
-            "code": 400,
-            "message": "Request must include rating and rating_desc.",
-        }), 400
+    validation_error = _validate_review(data, require_identity=False)
+    if validation_error:
+        return jsonify({"code": 400, "message": validation_error}), 400
 
     review = Review_db.query.filter_by(
         user_id=user_id,
@@ -151,7 +173,7 @@ def update_review(user_id, prod_id):
 
     review.rating = data["rating"]
     review.rating_desc = data["rating_desc"]
-    review.created_date = datetime.now()
+    review.created_date = datetime.now().isoformat()
     try:
         db.session.commit()
     except Exception:

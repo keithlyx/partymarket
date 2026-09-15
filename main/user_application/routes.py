@@ -112,7 +112,11 @@ def add_to_cart(prod_id):
             result_json_to_return = {}
             
             if prod_id[0] == "i":
-                quantity = request.form['quantity']
+                try:
+                    quantity = int(request.form['quantity'])
+                except (TypeError, ValueError):
+                    flash('Item quantity must be a positive whole number.', 'danger')
+                    return redirect(url_for('catalogue_detail', catalogue_id=prod_id))
                 result_json_to_return["quantity"] = quantity
 
             if prod_id[0] == "v":    

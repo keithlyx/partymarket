@@ -80,6 +80,9 @@ def add_review():
             "code": 400,
             "message": "Request must include user_id, prod_id, rating, and rating_desc.",
         }), 400
+    validation_error = _validate_review(data)
+    if validation_error:
+        return jsonify({"code": 400, "message": validation_error}), 400
 
     review_response = invoke_http(review_url, method="POST", json=data)
     if review_response.get("code") not in range(200, 300):
@@ -99,11 +102,9 @@ def add_review():
 @app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["PATCH"])
 def update_review(user_id, prod_id):
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or "rating" not in data or "rating_desc" not in data:
-        return jsonify({
-            "code": 400,
-            "message": "Request must include rating and rating_desc.",
-        }), 400
+    validation_error = _validate_review(data, require_identity=False)
+    if validation_error:
+        return jsonify({"code": 400, "message": validation_error}), 400
 
     review_response = invoke_http(
         review_url + "/" + user_id + "/" + prod_id,
@@ -122,6 +123,28 @@ def update_review(user_id, prod_id):
         "data": review_response.get("data"),
         "message": "Review updated and product rating recalculated.",
     }), 200
+
+
+def _validate_review(data, require_identity=True):
+    if not isinstance(data, dict):
+        return "Request payload must be a JSON object."
+    required_fields = ["rating", "rating_desc"]
+    if require_identity:
+        required_fields.extend(["user_id", "prod_id"])
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return "Missing required review fields: " + ", ".join(missing_fields) + "."
+    if require_identity:
+        for field in ("user_id", "prod_id"):
+            if not isinstance(data[field], str) or not data[field].strip():
+                return field + " must be a non-empty string."
+    if isinstance(data["rating"], bool) or not isinstance(data["rating"], int) or not 1 <= data["rating"] <= 5:
+        return "rating must be an integer from one to five."
+    if not isinstance(data["rating_desc"], str) or not data["rating_desc"].strip():
+        return "rating_desc must be a non-empty string."
+    if require_identity and not (data["prod_id"].startswith("i") or data["prod_id"].startswith("v")):
+        return "prod_id must identify a catalogue item or venue."
+    return None
 
 
 if __name__ == "__main__":

@@ -17,7 +17,11 @@ order_URL = environ.get('order_URL') or "http://order:5006/api/v1/orders"
 @app.route('/api/v1/refunds', methods=["POST"])
 def refund():
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data.get("order_id") or data.get("amount") is None:
+    if (not isinstance(data, dict) or not isinstance(data.get("order_id"), str)
+            or not data["order_id"].strip()
+            or isinstance(data.get("amount"), bool)
+            or not isinstance(data.get("amount"), (int, float))
+            or data["amount"] <= 0):
         return jsonify({
             "code": 400,
             "message": "Request must include order_id and amount.",

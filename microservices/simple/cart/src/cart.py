@@ -67,9 +67,8 @@ def add_to_cart(user_id, prod_id):
         }), 400
 
     if prod_id.startswith("i"):
-        try:
-            quantity = int(data["quantity"])
-        except (KeyError, TypeError, ValueError):
+        quantity = data.get("quantity")
+        if isinstance(quantity, bool) or not isinstance(quantity, int):
             return jsonify({
                 "code": 400,
                 "message": "Item quantity must be an integer.",
@@ -211,9 +210,8 @@ def update_quantity(user_id, item_id):
             "message": "Request must include quantity.",
         }), 400
 
-    try:
-        quantity = int(data["quantity"])
-    except (TypeError, ValueError):
+    quantity = data["quantity"]
+    if isinstance(quantity, bool) or not isinstance(quantity, int):
         return jsonify({
             "code": 400,
             "message": "Quantity must be an integer.",

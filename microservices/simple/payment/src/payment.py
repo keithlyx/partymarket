@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 @app.route('/api/v1/payments', methods=['POST'])
 def stripepay1():
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data.get('token') or data.get('amount') is None:
+    if (not isinstance(data, dict) or not data.get('token')
+            or isinstance(data.get('amount'), bool)
+            or not isinstance(data.get('amount'), (int, float))
+            or data.get('amount') <= 0):
         return jsonify({
             'code': 400,
             'message': 'Request must include a payment token and amount.'
@@ -60,7 +63,10 @@ def stripepay1():
 @app.route('/api/v1/refunds', methods=['POST'])
 def striperefund():
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or not data.get('charge_id') or data.get('amount') is None:
+    if (not isinstance(data, dict) or not data.get('charge_id')
+            or isinstance(data.get('amount'), bool)
+            or not isinstance(data.get('amount'), (int, float))
+            or data.get('amount') <= 0):
         return jsonify({
             'code': 400,
             'message': 'Request must include a charge ID and amount.'

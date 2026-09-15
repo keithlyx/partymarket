@@ -90,6 +90,14 @@ def update_venue_rating(venue_id):
 
     new_rating = data['rating']
     new_review_count = data["review_count"]
+    if (isinstance(new_rating, bool) or not isinstance(new_rating, (int, float))
+            or not 0 <= new_rating <= 5
+            or isinstance(new_review_count, bool) or not isinstance(new_review_count, int)
+            or new_review_count < 0):
+        return jsonify({
+            "code": 400,
+            "message": "rating must be between zero and five and review_count must be non-negative.",
+        }), 400
     venue = Venue.query.filter_by(venue_id=venue_id).first()
     if venue:
         try:

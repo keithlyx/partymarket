@@ -81,7 +81,7 @@
 <script>
   function reply_click(clicked_btn) {
     var orderId = clicked_btn.id;
-    var amount = clicked_btn.getAttribute("data-totalamount");
+    var amount = Number(clicked_btn.getAttribute("data-totalamount"));
 
     var refundBtn = document.getElementById(orderId);
 
