@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 from os import environ, path
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 import pika
@@ -63,8 +64,14 @@ def _validate_order(data: Any) -> Optional[str]:
         return "delivery_datetime must be a non-empty string."
 
     total_amount = data["total_amount"]
-    if isinstance(total_amount, bool) or not isinstance(total_amount, (int, float)) or total_amount < 0:
+    try:
+        parsed_total = Decimal(str(total_amount))
+    except (InvalidOperation, ValueError):
+        parsed_total = Decimal("-1")
+    if isinstance(total_amount, bool) or not parsed_total.is_finite() or parsed_total < 0:
         return "total_amount must be a non-negative number."
+    if parsed_total.as_tuple().exponent < -2:
+        return "total_amount must have at most two decimal places."
 
     items = data["items"]
     if not isinstance(items, list):
@@ -114,11 +121,11 @@ def create_order():
 
 
 def process_order(order: OrderRequest):
-    amount = order["total_amount"] * 100
+    amount_cents = int(Decimal(str(order["total_amount"])) * 100)
     payment = invoke_http(
         payment_url,
         method="POST",
-        json={"token": order["token"], "amount": amount},
+        json={"token": order["token"], "amount_cents": amount_cents},
     )
     if payment.get("code") not in range(200, 300):
         return _downstream_error(payment, "Payment could not be completed.")

@@ -21,18 +21,18 @@ logger = logging.getLogger(__name__)
 def create_payment():
     data = request.get_json(silent=True)
     if (not isinstance(data, dict) or not data.get('token')
-            or isinstance(data.get('amount'), bool)
-            or not isinstance(data.get('amount'), (int, float))
-            or data.get('amount') <= 0):
+            or isinstance(data.get('amount_cents'), bool)
+            or not isinstance(data.get('amount_cents'), int)
+            or data.get('amount_cents') <= 0):
         return jsonify({
             'code': 400,
-            'message': 'Request must include a payment token and amount.'
+            'message': 'Request must include a payment token and positive amount_cents.'
         }), 400
 
     token = data['token']
     try:
         charge = stripe.Charge.create(
-        amount=data['amount'],
+        amount=data['amount_cents'],
         currency="sgd",
         source=token,
         description="My First Test Charge (created for API docs at https://www.stripe.com/docs/api)"
@@ -64,21 +64,20 @@ def create_payment():
 def create_refund():
     data = request.get_json(silent=True)
     if (not isinstance(data, dict) or not data.get('charge_id')
-            or isinstance(data.get('amount'), bool)
-            or not isinstance(data.get('amount'), (int, float))
-            or data.get('amount') <= 0):
+            or isinstance(data.get('amount_cents'), bool)
+            or not isinstance(data.get('amount_cents'), int)
+            or data.get('amount_cents') <= 0):
         return jsonify({
             'code': 400,
-            'message': 'Request must include a charge ID and amount.'
+            'message': 'Request must include a charge ID and positive amount_cents.'
         }), 400
 
     charge_id = data['charge_id']
-    total_amount = data['amount']
-    total_amount = int(float(total_amount) * 100)
+    amount_cents = data['amount_cents']
     try:
         refund = stripe.Refund.create(
         charge = charge_id,
-        amount = total_amount
+        amount = amount_cents
         )
         return jsonify({
                 'code': 200,

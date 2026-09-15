@@ -6,6 +6,7 @@ from invokes import invoke_http
 import amqp_setup
 import pika
 import json
+from decimal import Decimal, InvalidOperation
 
 app = Flask(__name__)
 CORS(app)
@@ -19,14 +20,23 @@ def refund():
     data = request.get_json(silent=True)
     if (not isinstance(data, dict) or not isinstance(data.get("order_id"), str)
             or not data["order_id"].strip()
-            or isinstance(data.get("amount"), bool)
-            or not isinstance(data.get("amount"), (int, float))
-            or data["amount"] <= 0):
+            or isinstance(data.get("amount"), bool)):
         return jsonify({
             "code": 400,
             "message": "Request must include order_id and amount.",
         }), 400
 
+    try:
+        amount = Decimal(str(data["amount"]))
+    except (InvalidOperation, ValueError):
+        amount = Decimal("-1")
+    if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
+        return jsonify({
+            "code": 400,
+            "message": "amount must be a positive value with at most two decimal places.",
+        }), 400
+
+    data["amount_cents"] = int(amount * 100)
     return process_refund(data)
 
 
@@ -34,7 +44,7 @@ def process_refund(data):
     order_id = data["order_id"]
     refund = invoke_http(payment_URL, method="POST", json={
         "charge_id": order_id,
-        "amount": data["amount"],
+        "amount_cents": data["amount_cents"],
     })
     if refund["code"] not in range(200, 300):
         return jsonify({
