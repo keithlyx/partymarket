@@ -5,29 +5,19 @@ Party Planning Market is event-booking platform where users can browse party ite
 The platform uses Flask domain services, workflow services, RabbitMQ, Stripe, SendGrid, MySQL, and Docker Compose. This repository is a maintained public copy; the current branch adds versioned APIs, environment-based configuration, validation, focused tests, and safer payment and notification handling while keeping the project’s overall scope intact.
 
 ## Architecture
-
-```text
-Flask web application
-        |
-        +--> Simple domain services --> MySQL schemas
-        |
-        +--> Complex workflow services --> Simple domain services
-
-Order and refund events --> RabbitMQ --> Notification service --> SendGrid
-Payment and refund requests --> Stripe
-```
-
 ![System architecture](resources/architecture.png)
 
-The web application is the browser-facing entry point. It retrieves cart and catalogue data through the services, calculates order totals on the server, and forwards authenticated checkout and refund requests to the relevant workflows. Service ports are bound to localhost for the local Compose setup.
 
-### Selected workflows
 
+### Scenarios
+Scenario 1: submit an order
 ![Submit order workflow](resources/SubmitOrder.png)
-
+Scenario 2: Write a Review 
+![Review workflow](resources/Review1.png)
+Scenario 2: Cancel an order
 ![Cancellation workflow](resources/Cancellation.png)
 
-![Review workflow](resources/Review1.png)
+
 
 The Compose setup uses one MySQL server with separate logical schemas for catalogue, cart, orders, reviews, venue, and users. Each service receives its own database URL and owns only its schema. This keeps the local setup practical while preserving service data ownership.
 
