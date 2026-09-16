@@ -1,12 +1,33 @@
-version: "3.8"
-
 networks:
   my-networks:
 
 volumes:
   rabbitmq_data:
+  mysql_data:
 
 services:
+
+  ###############################################
+  # MySQL: one local server with one schema per service
+  ###############################################
+  database:
+    image: mysql:8.0
+    container_name: partymarket-database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+    networks:
+      - my-networks
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./databases:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   ###############################################
   ####################################
@@ -20,10 +41,15 @@ services:
     networks:
       - my-networks
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     volumes: 
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   #################################
   # Venue: Venue microservice
@@ -36,8 +62,13 @@ services:
     networks:
       - my-networks
     ports:
-      - "5003:5003"
+      - "127.0.0.1:5003:5003"
     restart: always
+    environment:
+      VENUE_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD}@database:3306/venue"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -51,8 +82,13 @@ services:
     networks:
       - my-networks
     ports:
-      - "5004:5004"
+      - "127.0.0.1:5004:5004"
     restart: always
+    environment:
+      CATALOGUE_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD}@database:3306/catalogue"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -66,8 +102,13 @@ services:
     networks:
       - my-networks
     ports:
-      - "5007:5007"
+      - "127.0.0.1:5007:5007"
     restart: always
+    environment:
+      REVIEW_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD}@database:3306/reviews"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -85,7 +126,7 @@ services:
     networks:
       - my-networks
     ports:
-      - "5008:5008"
+      - "127.0.0.1:5008:5008"
     restart: always
 
 
@@ -100,8 +141,13 @@ services:
     networks:
       - my-networks
     ports:
-      - "5006:5006"
+      - "127.0.0.1:5006:5006"
     restart: always
+    environment:
+      ORDER_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD}@database:3306/orders"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -115,8 +161,13 @@ services:
     networks:
       - my-networks
     ports:
-      - "5005:5005"
+      - "127.0.0.1:5005:5005"
     restart: always
+    environment:
+      CART_DATABASE_URL: "mysql+mysqlconnector://root:${MYSQL_ROOT_PASSWORD}@database:3306/cart"
+    depends_on:
+      database:
+        condition: service_healthy
 
 
   ###############################################
@@ -130,14 +181,17 @@ services:
     networks:
       - my-networks
     ports:
-      - "5010:5010"
+      - "127.0.0.1:5010:5010"
     restart: always
     depends_on:
-     - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     environment:
-      rabbit_host: rabbitmq
-      rabbit_port: 5672
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       SENDGRID_API_KEY: "${SENDGRID_API_KEY}"
+      SENDGRID_FROM_EMAIL: "${SENDGRID_FROM_EMAIL}"
+      MAX_EMAIL_RETRIES: "${MAX_EMAIL_RETRIES:-3}"
 
 
   ###############################################
@@ -151,11 +205,17 @@ services:
     networks:
       - my-networks
     ports:
-      - "5200:5200"
+      - "127.0.0.1:5200:5200"
     restart: always
     environment:
-      rabbit_host: rabbitmq
-      rabbit_port: 5672
+      PAYMENT_URL: "http://payment:5008/api/v1/payments"
+      REFUND_URL: "http://payment:5008/api/v1/refunds"
+      CART_URL: "http://cart:5005/api/v1/carts"
+      ORDER_URL: "http://order:5006/api/v1/orders"
+      CATALOGUE_URL: "http://catalogue:5004/api/v1/catalogue"
+      VENUE_URL: "http://venue:5003/api/v1/venues"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       PYTHONUNBUFFERED: 1
 
     depends_on:
@@ -179,10 +239,11 @@ services:
     networks:
       - my-networks
     environment:
-      rabbit_host: rabbitmq
-      rabbit_port: 5672
+      CATALOGUE_URL: "http://catalogue:5004/api/v1/catalogue"
+      VENUE_URL: "http://venue:5003/api/v1/venues"
+      REVIEW_URL: "http://review:5007/api/v1/reviews"
     ports:
-      - "5400:5400"
+      - "127.0.0.1:5400:5400"
     restart: always
     depends_on:
       - venue
@@ -205,8 +266,12 @@ services:
     networks:
       - my-networks
     ports:
-      - "5300:5300"
+      - "127.0.0.1:5300:5300"
     restart: always
+    environment:
+      CATALOGUE_URL: "http://catalogue:5004/api/v1/catalogue"
+      VENUE_URL: "http://venue:5003/api/v1/venues"
+      ORDER_URL: "http://order:5006/api/v1/orders"
     depends_on:
       - venue
       - catalogue
@@ -228,8 +293,13 @@ services:
     networks:
       - my-networks
     ports:
-      - "5700:5700"
+      - "127.0.0.1:5700:5700"
     restart: always
+    environment:
+      PAYMENT_URL: "http://payment:5008/api/v1/refunds"
+      ORDER_URL: "http://order:5006/api/v1/orders"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
     depends_on:
       - venue
       - catalogue

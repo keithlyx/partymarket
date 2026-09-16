@@ -1,18 +1,15 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
 from os import environ
 
 
 
 app = Flask(__name__)
-# app.config['SQLALCHEMY_DATABASE_URI'] = environ.get('venue_dbURL') or 'mysql+mysqlconnector://root@localhost:3306/venue'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///venue.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["VENUE_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-CORS(app)
 class Venue(db.Model):
     __tablename__ = 'venue'
 
@@ -20,7 +17,7 @@ class Venue(db.Model):
     venue_name = db.Column(db.String, nullable=False)
     venue_img = db.Column(db.String, nullable=False)
     venue_description = db.Column(db.String, nullable=False)
-    venue_price = db.Column(db.Float(precision=2), nullable=False)
+    venue_price = db.Column(db.Numeric(10, 2), nullable=False)
     venue_rating = db.Column(db.Float(precision=2), nullable=False)
     review_count = db.Column(db.Integer, nullable=False)
     address = db.Column(db.String, nullable=False)
@@ -37,38 +34,25 @@ class Venue(db.Model):
         self.address = address
 
     def json(self):
-        print(self.address)
         return {"venue_id": self.venue_id, "venue_name": self.venue_name,
                 "venue_img": self.venue_img, "venue_description": self.venue_description,
-                "venue_price": self.venue_price, "venue_rating": self.venue_rating,
+                "venue_price": f"{self.venue_price:.2f}", "venue_rating": self.venue_rating,
                 "review_count": self.review_count, "address": self.address}
 
-with app.app_context():
-  # call your method here
-    db.create_all()
-
-@app.route("/api/v1/venue")
-def get_all():
+@app.route("/api/v1/venues")
+def get_venues():
     venues = Venue.query.all()
-    if len(venues):
-
-        return jsonify(
-            {
-                "code": 200,
-                "data": {
-                    "venues": [venue.json() for venue in venues]
-                }
-            }
-        )
     return jsonify(
         {
-            "code": 404,
-            "message": "There are no venues."
+            "code": 200,
+            "data": {
+                "venues": [venue.json() for venue in venues]
+            }
         }
-    ), 404
+    ), 200
 
-@app.route("/api/v1/venue/<string:venue_id>")
-def find_by_venue_id(venue_id):
+@app.route("/api/v1/venues/<string:venue_id>")
+def get_venue(venue_id):
     venue = Venue.query.filter_by(venue_id=venue_id).first()
     if venue:
         return jsonify(
@@ -87,12 +71,25 @@ def find_by_venue_id(venue_id):
         }
     ), 404
 
-#i think this doenst work atm
-@app.route("/api/v1/venue/update_venue_rating", methods=["PUT"])
-def update_venue_rating():
-    venue_id = request.json['venue_id']
-    new_rating = request.json['rating']
-    new_review_count = request.json["review_count"]
+@app.route("/api/v1/venues/<string:venue_id>/rating", methods=["PATCH"])
+def update_venue_rating(venue_id):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "rating" not in data or "review_count" not in data:
+        return jsonify({
+            "code": 400,
+            "message": "Request must include rating and review_count."
+        }), 400
+
+    new_rating = data['rating']
+    new_review_count = data["review_count"]
+    if (isinstance(new_rating, bool) or not isinstance(new_rating, (int, float))
+            or not 0 <= new_rating <= 5
+            or isinstance(new_review_count, bool) or not isinstance(new_review_count, int)
+            or new_review_count < 0):
+        return jsonify({
+            "code": 400,
+            "message": "rating must be between zero and five and review_count must be non-negative.",
+        }), 400
     venue = Venue.query.filter_by(venue_id=venue_id).first()
     if venue:
         try:
@@ -101,17 +98,18 @@ def update_venue_rating():
             db.session.commit()
             return jsonify(
                 {
-                    "code": 201,
+                    "code": 200,
                     "data": venue.json(),
                     "message": "Venue rating updated."
                 }
-            )
-        except Exception as e:
+            ), 200
+        except Exception:
+            db.session.rollback()
             return jsonify(
                 {
                     "code": 500,
                     "venue_id": venue_id,
-                    "message": "An error occurred updating the venue rating." + str(e)
+                    "message": "An error occurred updating the venue rating."
                 }
             ), 500
 
@@ -124,5 +122,6 @@ def update_venue_rating():
     ), 404
 
 if __name__ == '__main__':
-    port = 5003 or int(environ.get('PORT', 5003))
-    app.run(host="0.0.0.0",port=port, debug=True)
+    port = int(environ.get('PORT', 5003))
+    debug = environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host="0.0.0.0", port=port, debug=debug)

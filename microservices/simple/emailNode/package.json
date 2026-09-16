@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "party_notification",
   "main": "notification.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "@sendgrid/mail": "7.7.0",
     "amqplib": "0.10.3",

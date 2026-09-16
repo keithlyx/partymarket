@@ -1,66 +1,54 @@
 const amqp = require('amqplib');
 
-// These variables can be set based on the AMQP broker being used
-const hostname = "rabbitmq";
-const port = 5672;
-const exchangename = "email_exchange";
-const exchangetype = "topic";
+const hostname = process.env.RABBITMQ_HOST || 'rabbitmq';
+const port = process.env.RABBITMQ_PORT || 5672;
+const exchangeName = 'email_exchange';
+const exchangeType = 'topic';
+const queueName = 'email_queue';
 
-// Set up the connection and channel to the AMQP broker
-var connection = null;
-var channel = null;
+let connection = null;
+let channel = null;
+let setupPromise = null;
 
-amqp.connect(`amqp://${hostname}:${port}`, "heartbeat=60")
-    .then((conn) => {
-      connection = conn;
-      return connection.createChannel();
-    })
-    .then((ch) => {
-      channel = ch;
-      // Set up the exchange
-      return channel.assertExchange(exchangename, exchangetype, { durable: true });
-    })
-    .then(() => {
-      // Set up the email queue
-      const queue_name = 'email_queue';
-      return channel.assertQueue(queue_name, { durable: true });
-    })
-    .then(() => {
-      const queue_name = 'email_queue';
-      return channel.bindQueue(queue_name, exchangename, '*.email');
-    })
-    .catch(console.error);
+async function connect() {
+  const nextConnection = await amqp.connect(`amqp://${hostname}:${port}`, { heartbeat: 60 });
+  nextConnection.on('close', () => {
+    connection = null;
+    channel = null;
+    setupPromise = null;
+  });
+  nextConnection.on('error', (error) => {
+    console.error('RabbitMQ connection error:', error.message);
+  });
 
-// Check if the connection/channel to the AMQP broker is still open
-function isConnectionOpen() {
-  if (!connection || !channel) {
-    return false;
+  const nextChannel = await nextConnection.createChannel();
+  await nextChannel.assertExchange(exchangeName, exchangeType, { durable: true });
+  await nextChannel.assertQueue(queueName, { durable: true });
+  await nextChannel.bindQueue(queueName, exchangeName, '*.email');
+
+  connection = nextConnection;
+  channel = nextChannel;
+  return channel;
+}
+
+async function checkSetup() {
+  if (connection && channel) {
+    return channel;
   }
 
-  return true;
+  if (!setupPromise) {
+    setupPromise = connect().catch((error) => {
+      setupPromise = null;
+      throw error;
+    });
+  }
+
+  return setupPromise;
 }
-
-// Re-establish the connection/channel if they have been closed
-async function checkSetup() {
-    let channel = null
-    console.log('checkSetup');
-    if (!isConnectionOpen()) {
-
-        console.log('reconnecting');
-        channel = amqp.connect(`amqp://${hostname}:${port}`, "heartbeat=60")
-            .then((conn) => {
-                connection = conn;
-                channel = connection.createChannel()
-                return channel;
-            })
-}
-return channel;
-
-}
-
-
 
 module.exports = {
   checkSetup,
-  channel
+  get channel() {
+    return channel;
+  },
 };

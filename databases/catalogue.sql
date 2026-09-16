@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS catalogue (
   item_id VARCHAR(10) PRIMARY KEY,
   category_name VARCHAR(100) NOT NULL,
   item_name VARCHAR(255) NOT NULL,
-  item_price FLOAT NOT NULL,
+  item_price DECIMAL(10, 2) NOT NULL,
   item_img VARCHAR(1000) NOT NULL,
   item_description VARCHAR(1000) NOT NULL,
   item_rating FLOAT NOT NULL,

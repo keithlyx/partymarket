@@ -1,88 +1,151 @@
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
-from os import environ, path
+from os import environ
 from invokes import invoke_http
 import amqp_setup
 import pika
 import json
-import threading
+import logging
+from decimal import Decimal, InvalidOperation
+from typing import Any, Dict, Optional
 
 app = Flask(__name__)
-CORS(app) 
+logger = logging.getLogger(__name__)
 
-app.config["THREADING"] = True
-
-payment_URL = environ.get('payment_URL') or "http://payment:5008/api/v1/striperefund"
-order_URL = environ.get('order_URL') or "http://order:5006/api/v1/"
-getorder_URL = environ.get('getorder_URL') or "http://order:5006/api/v1/get_order/"
-@app.route('/api/v1/refund', methods=["POST"])
-def refund_():
-    print(request)
-    if request.is_json:
-        #retrieve the charge id from the url
-        try:
-            order_id = request.get_json()
-            result = processRefund(order_id)
-            # print(result)
-            result = json.loads(result[0].data)
-
-            return jsonify(result), result["code"]
-        
-        except Exception as e:
-            return jsonify({
-                "code": 404,
-                "message": str(e)
-            }), 404
-    # if reached here, not a JSON request.
-    return jsonify({
-        "code": 400,
-        "message": "Invalid JSON input: " + str(request.get_data())
-    }), 400
+payment_url = environ.get('PAYMENT_URL') or "http://payment:5008/api/v1/refunds"
+order_url = environ.get('ORDER_URL') or "http://order:5006/api/v1/orders"
+SUCCESS_CODES = range(200, 300)
 
 
-def processRefund(order_id):
-    print(f'\n-----Processing refund for order_id: {order_id}-----')
-    data = request.get_json()
-    charge_id = data['chargeId']
-    amount = data['totalAmountElement']
-    refund = invoke_http(payment_URL, method="POST", json={"charge_id": charge_id , "amount": amount })
-    if refund["code"] not in range(200, 300):
+@app.route('/api/v1/refunds', methods=["POST"])
+def refund():
+    data = request.get_json(silent=True)
+    validation_error = _validate_request(data)
+    if validation_error:
+        return validation_error
+
+    order_id = data["order_id"]
+    user_id = data["user_id"]
+
+    order_response = invoke_http(order_url + "/" + order_id, method="GET")
+    if not _is_successful_response(order_response):
         return jsonify({
-            "code": refund["code"],
-            "message": "Error in payment microservice while refunding" + refund["message"]
-        }), refund["code"]
-    print("Refund result:", refund)
-    # invoke the order microservie to update the order status
-    print("Sending to order microservice to update status")
-    order_id = order_id["chargeId"]
-    order = invoke_http(order_URL + '/update_order_status/' + order_id, method="POST", json={"status": "Refunded"})
-    print("Updated to refunded")
-    if order["code"] not in range(200, 300):
+            "code": _response_code(order_response),
+            "message": "Order could not be retrieved.",
+        }), _response_code(order_response)
+
+    order = order_response.get("order")
+    if not isinstance(order, dict) or order.get("user_id") != user_id:
         return jsonify({
-            "code": order["code"],
-            "message": "Error in order microservice while updating status" + order["message"]
-        }), order["code"]
-    print("-----Sending to email queue-----")
-    amqp_thread = threading.Thread(target=sendEmail(order['data']))
-    amqp_thread.start()
+            "code": 403,
+            "message": "You are not allowed to refund this order.",
+        }), 403
+
+    if order.get("order_status") == "Refunded":
+        return jsonify({
+            "code": 409,
+            "message": "This order has already been refunded.",
+        }), 409
+    if order.get("order_status") != "Accepted":
+        return jsonify({
+            "code": 409,
+            "message": "This order is not eligible for a refund.",
+        }), 409
+
+    amount_cents = _amount_in_cents(order)
+    if amount_cents is None:
+        return jsonify({
+            "code": 502,
+            "message": "Order service returned an invalid order amount.",
+        }), 502
+
+    data["amount_cents"] = amount_cents
+    return process_refund(data)
+
+
+def _validate_request(data: Any):
+    if (not isinstance(data, dict) or not _non_empty_string(data.get("order_id"))
+            or not _non_empty_string(data.get("user_id"))):
+        return jsonify({
+            "code": 400,
+            "message": "Request must include order_id and user_id.",
+        }), 400
+    return None
+
+
+def _non_empty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_successful_response(response: Any) -> bool:
+    return isinstance(response, dict) and response.get("code") in SUCCESS_CODES
+
+
+def _response_code(response: Any, default: int = 502) -> int:
+    if isinstance(response, dict) and isinstance(response.get("code"), int):
+        return response["code"]
+    return default
+
+
+def _amount_in_cents(order: Dict[str, Any]) -> Optional[int]:
+    try:
+        amount = Decimal(str(order["total_amount"]))
+    except (KeyError, InvalidOperation, ValueError):
+        return None
+    if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
+        return None
+    return int(amount * 100)
+
+
+def process_refund(data: Dict[str, Any]):
+    order_id = data["order_id"]
+    refund_response = invoke_http(payment_url, method="POST", json={
+        "charge_id": order_id,
+        "amount_cents": data["amount_cents"],
+        "idempotency_key": "refund:" + order_id,
+    })
+    if not _is_successful_response(refund_response):
+        response_code = _response_code(refund_response)
+        return jsonify({
+            "code": response_code,
+            "message": "Payment provider rejected the refund request.",
+        }), response_code
+
+    updated_order = invoke_http(order_url + "/" + order_id, method="PATCH", json={"status": "Refunded"})
+    if not _is_successful_response(updated_order):
+        response_code = _response_code(updated_order)
+        return jsonify({
+            "code": response_code,
+            "message": "Order status could not be updated after the refund.",
+        }), response_code
+
+    notification_queued = True
+    try:
+        order_details = updated_order.get("data")
+        if not isinstance(order_details, dict):
+            raise ValueError("Order update response did not include order data.")
+        send_email(order_details)
+    except Exception:
+        logger.exception("Refund notification could not be queued")
+        notification_queued = False
     return jsonify({
         "code": 200,
-        "message": "Refund process ends here sent to email queue"
+        "message": (
+            "Refund processed and notification queued."
+            if notification_queued
+            else "Refund processed; notification could not be queued."
+        ),
     }), 200
 
-def sendEmail(order_details):
-    # 3. send order to email microservice
-    # Invoke the email microservice
-    print('\n-----Sending to email queue-----')
+def send_email(order_details):
+    email_order = dict(order_details)
     amqp_setup.check_setup()
-    order_details["type"] = "order_refund"
+    email_order["type"] = "order_refund"
     amqp_setup.channel.basic_publish(exchange="email_exchange", routing_key="confirmation.email",
-                                     body=json.dumps(order_details), properties=pika.BasicProperties(delivery_mode=2))
-    print("\n-----------Sent to email queue-----------\n")
+                                     body=json.dumps(email_order), properties=pika.BasicProperties(delivery_mode=2))
     
 
 if __name__ == "__main__":
-    print("This is flask " + path.basename(__file__) + " for processing refunds...")
-    port = 5700 or int(environ.get('PORT', 5700))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(environ.get('PORT', 5700))
+    debug = environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host="0.0.0.0", port=port, debug=debug)

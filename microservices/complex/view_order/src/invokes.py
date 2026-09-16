@@ -1,39 +1,30 @@
+import logging
+
 import requests
 
-SUPPORTED_HTTP_METHODS = set([
-    "GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"
-])
 
-def invoke_http(url, method='GET', json=None, **kwargs):
-    """A simple wrapper for requests methods.
-       url: the url of the http service;
-       method: the http method;
-       data: the JSON input when needed by the http method;
-       return: the JSON reply content from the http service if the call succeeds;
-            otherwise, return a JSON object with a "code" name-value pair.
-    """
-    code = 200
-    result = {}
+SUPPORTED_HTTP_METHODS = {"GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"}
+logger = logging.getLogger(__name__)
+
+
+def invoke_http(url, method="GET", json=None, **kwargs):
+    """Call a downstream service and return its JSON response envelope."""
+    method = method.upper()
+    if method not in SUPPORTED_HTTP_METHODS:
+        return {"code": 400, "message": "Unsupported HTTP method."}
+
+    kwargs.setdefault("timeout", 10)
+    try:
+        response = requests.request(method, url, json=json, **kwargs)
+    except requests.RequestException:
+        logger.exception("Downstream HTTP request failed")
+        return {"code": 502, "message": "Downstream service unavailable."}
+
+    if not 200 <= response.status_code < 300:
+        return {"code": response.status_code, "message": "Downstream service returned an error."}
 
     try:
-        if method.upper() in SUPPORTED_HTTP_METHODS:
-            r = requests.request(method, url, json = json, **kwargs)
-        else:
-            raise Exception("HTTP method {} unsupported.".format(method))
-    except Exception as e:
-        code = 500
-        result = {"code": code, "message": "invocation of service fails: " + url + ". " + str(e)}
-    if code not in range(200,300):
-        return result
-
-    ## Check http call result
-    if r.status_code != requests.codes.ok:
-        code = r.status_code
-    try:
-        result = r.json() if len(r.content)>0 else ""
-    except Exception as e:
-        code = 500
-        result = {"code": code, "message": "Invalid JSON output from service: " + url + ". " + str(e)}
-
-    return result
-
+        return response.json() if response.content else {"code": response.status_code}
+    except ValueError:
+        logger.exception("Downstream service returned invalid JSON")
+        return {"code": 502, "message": "Downstream service returned invalid JSON."}

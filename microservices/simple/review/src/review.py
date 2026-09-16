@@ -1,20 +1,45 @@
+from datetime import datetime
+from os import environ
+from typing import Any, Optional, TypedDict
+
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
-from os import environ
-from datetime import datetime
-import json
+
 
 app = Flask(__name__)
-# app.config['SQLALCHEMY_DATABASE_URI'] = environ.get('review_dbURL') or 'mysql+mysqlconnector://root@localhost:3306/review'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///review.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = environ["REVIEW_DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-CORS(app)
 
 
-class Review_db(db.Model):
+class ReviewPayload(TypedDict):
+    user_id: str
+    prod_id: str
+    rating: int
+    rating_desc: str
+
+
+def _validate_review(data: Any, require_identity: bool = True) -> Optional[str]:
+    if not isinstance(data, dict):
+        return "Request payload must be a JSON object."
+    required_fields = ["rating", "rating_desc"]
+    if require_identity:
+        required_fields.extend(["user_id", "prod_id"])
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return "Missing required review fields: " + ", ".join(missing_fields) + "."
+    for field in ("user_id", "prod_id") if require_identity else ():
+        if not isinstance(data[field], str) or not data[field].strip():
+            return field + " must be a non-empty string."
+    if isinstance(data["rating"], bool) or not isinstance(data["rating"], int) or not 1 <= data["rating"] <= 5:
+        return "rating must be an integer from one to five."
+    if not isinstance(data["rating_desc"], str) or not data["rating_desc"].strip():
+        return "rating_desc must be a non-empty string."
+    return None
+
+
+class Review(db.Model):
     __tablename__ = 'review_items'
 
     user_id = db.Column(db.String, primary_key=True)
@@ -31,162 +56,162 @@ class Review_db(db.Model):
         self.created_date = created_date
 
     def json(self):
-        return {"user_id": self.user_id, "prod_id": self.prod_id,
-                "rating": self.rating, "rating_desc": self.rating_desc, "created_date": self.created_date}
-
-
-with app.app_context():
-    # call your method here
-    db.create_all()
-
-
-# need add methods to CRUD review
-# getting review information by prod_id
-@app.route("/api/v1/review/product/<prod_id>")
-def get_review_by_prod_id(prod_id):
-    review = Review_db.query.filter_by(prod_id=prod_id).all()
-    print(review)
-    if review:
-        return jsonify(
-            {
-                "code": 200,
-                "prod_id": prod_id,
-                "data": {
-                    "review": [review.json() for review in review]
-                }
-            }
-        )
-    return jsonify(
-        {
-            "code": 404,
-            "message": f"no reviews of item: {prod_id} found."
+        return {
+            "user_id": self.user_id,
+            "prod_id": self.prod_id,
+            "rating": self.rating,
+            "rating_desc": self.rating_desc,
+            "created_date": self.created_date,
         }
-    ), 404
 
 
-# getting review information by user_id, uses GET method
-@app.route("/api/v1/review/user/<user_id>", methods=['GET'])
-def get_review_by_user_id(user_id):
-    reviews = Review_db.query.filter_by(user_id=user_id).all()
-    if reviews:
-        return jsonify(
-            {
-                "code": 200,
-                "user_id": user_id,
-                "data": {
-                    "review": [review.json() for review in reviews]
-                }
-            }
-        )
-    return jsonify(
-        {
+@app.route("/api/v1/reviews", methods=["GET"])
+def get_reviews():
+    product_id = request.args.get("product_id")
+    user_id = request.args.get("user_id")
+    if not product_id and not user_id:
+        return jsonify({
+            "code": 400,
+            "message": "product_id or user_id is required.",
+        }), 400
+
+    query = Review.query
+    if product_id:
+        query = query.filter_by(prod_id=product_id)
+    if user_id:
+        query = query.filter_by(user_id=user_id)
+
+    reviews = query.all()
+    return jsonify({
+        "code": 200,
+        "data": {
+            "reviews": [review.json() for review in reviews],
+        },
+    }), 200
+
+
+@app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["GET"])
+def get_review(user_id, prod_id):
+    review = Review.query.filter_by(
+        user_id=user_id,
+        prod_id=prod_id,
+    ).first()
+    if not review:
+        return jsonify({
             "code": 404,
-            "message": f"no reviews by user: {user_id} found."
-        }
-    ), 404
-
-
-# Check if user has entered a review for a specific product
-@app.route("/api/v1/review/<user_id>/<prod_id>", methods=["GET"])
-def get_review_by_composite_id(user_id, prod_id):
-    review = Review_db.query.filter_by(user_id=user_id, prod_id=prod_id).all()
-    if review:
-        return jsonify(
-            {
-                "code": 200,
-                "user_id": user_id,
-                "data": {
-                    "review": [review.json() for review in review]
-                }
-            }
-        )
-    return jsonify(
-        {
-            "code": 404,
-            "message": f"no reviews by user: {user_id} found."
-        }
-    ), 404
-
-
-# adding review information
-@app.route("/api/v1/review/add_review/<user_id>/<prod_id>", methods=["POST"])
-def add_review(user_id, prod_id):
-    print("=================review.py add_review called! =================")
-    review = Review_db.query.filter_by(user_id=user_id, prod_id=prod_id).all()
-    if len(review) > 0:
-        return jsonify(
-            {
-                "code": 404,
-                "message": f"{prod_id} has already been reviewed found by {user_id}!"
-            }
-        ), 404
-
-    else:
-        if request.is_json:
-            review_str = request.get_json()
-            review_json = json.loads(review_str)
-            print(type(review_json))
-            print(f'=================review_json: {review_json} =================')
-            print(user_id, prod_id, review_json["rating"], review_json["rating_desc"])
-            time_now = datetime.now()
-            user_review = Review_db(user_id=user_id, prod_id=prod_id, rating=review_json['rating'],
-                                    rating_desc=review_json["rating_desc"], created_date=time_now)
-            try:
-                db.session.add(user_review)
-                db.session.commit()
-                return jsonify({
-                    "code": 200,
-                    "message": f"Review of {prod_id} by {user_id} added."
-                }), 200
-
-            except Exception as e:
-                db.session.rollback()
-                return jsonify({
-                    "code": 500,
-                    "message": str(e)
-                }), 500
-
-        return jsonify(
-            {
-                "code": 404,
-                "message": f"Request must be a JSON object."
-            }
-        ), 404
-
-
-# update review information by user_id, uses PUT method
-@app.route("/api/v1/review/edit_review/<user_id>/<prod_id>", methods=['PUT'])
-def update_review(user_id, prod_id):
-    # retrieve the item record to update
-    if request.is_json:
-        user_old_review = Review_db.query.filter_by(user_id=user_id, prod_id=prod_id).first()
-        if user_old_review:
-            user_new_review = request.get_json()
-
-            try:
-                user_old_review.rating = user_new_review["rating"]
-                user_old_review.rating_desc = user_new_review["rating_desc"]
-                user_old_review.created_date = datetime.now()
-                db.session.commit()
-                return jsonify(
-                    {
-                        "code": 200,
-                        "message": f"Review of {prod_id} has been updated!"
-                    }
-                )
-
-            except Exception as e:
-                return jsonify({
-                    "code": 400,
-                    "message": "Review update failed." + str(e)
-                }), 400
+            "message": "Review not found.",
+        }), 404
 
     return jsonify({
-        "code": 400,
-        "message": "Review update failed. Request must be a JSON object."
-    }), 400
+        "code": 200,
+        "data": review.json(),
+    }), 200
+
+
+@app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["DELETE"])
+def delete_review(user_id, prod_id):
+    review = Review.query.filter_by(
+        user_id=user_id,
+        prod_id=prod_id,
+    ).first()
+    if not review:
+        return jsonify({
+            "code": 404,
+            "message": "Review not found.",
+        }), 404
+
+    db.session.delete(review)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "code": 500,
+            "message": "An error occurred while deleting the review.",
+        }), 500
+
+    return jsonify({
+        "code": 200,
+        "message": "Review deleted.",
+    }), 200
+
+
+@app.route("/api/v1/reviews", methods=["POST"])
+def add_review():
+    data = request.get_json(silent=True)
+    validation_error = _validate_review(data)
+    if validation_error:
+        return jsonify({"code": 400, "message": validation_error}), 400
+
+    existing_review = Review.query.filter_by(
+        user_id=data["user_id"],
+        prod_id=data["prod_id"],
+    ).first()
+    if existing_review:
+        return jsonify({
+            "code": 409,
+            "message": "This product has already been reviewed by the user.",
+        }), 409
+
+    review = Review(
+        user_id=data["user_id"],
+        prod_id=data["prod_id"],
+        rating=data["rating"],
+        rating_desc=data["rating_desc"],
+        created_date=datetime.now().isoformat(),
+    )
+    db.session.add(review)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "code": 500,
+            "message": "An error occurred while creating the review.",
+        }), 500
+
+    return jsonify({
+        "code": 201,
+        "data": review.json(),
+    }), 201
+
+
+@app.route("/api/v1/reviews/<user_id>/<prod_id>", methods=["PATCH"])
+def update_review(user_id, prod_id):
+    data = request.get_json(silent=True)
+    validation_error = _validate_review(data, require_identity=False)
+    if validation_error:
+        return jsonify({"code": 400, "message": validation_error}), 400
+
+    review = Review.query.filter_by(
+        user_id=user_id,
+        prod_id=prod_id,
+    ).first()
+    if not review:
+        return jsonify({
+            "code": 404,
+            "message": "Review not found.",
+        }), 404
+
+    review.rating = data["rating"]
+    review.rating_desc = data["rating_desc"]
+    review.created_date = datetime.now().isoformat()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "code": 500,
+            "message": "An error occurred while updating the review.",
+        }), 500
+
+    return jsonify({
+        "code": 200,
+        "data": review.json(),
+    }), 200
 
 
 if __name__ == '__main__':
-    port = 5007 or int(environ.get('PORT', 5007))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(environ.get('PORT', 5007))
+    debug = environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host="0.0.0.0", port=port, debug=debug)

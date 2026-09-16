@@ -8,14 +8,14 @@ CREATE TABLE IF NOT EXISTS venue (
   venue_name VARCHAR(100) NOT NULL,
   venue_img VARCHAR(1000) NOT NULL,
   venue_description VARCHAR(1000) NOT NULL,
-  venue_price FLOAT NOT NULL,
-  venue_rating FLOAT,
+  venue_price DECIMAL(10, 2) NOT NULL,
+  venue_rating FLOAT NOT NULL,
   review_count INT NOT NULL,
-  venue_coords VARCHAR(100) NOT NULL
+  address VARCHAR(255) NOT NULL
 );
 
 INSERT INTO venue (venue_id ,venue_name ,venue_img ,venue_description ,venue_price ,venue_rating ,
-review_count,venue_coords) VALUES('v00','Holiday Inn','Hoiday Inn','Holiday Inn',0.00, 0, 0, '1.2975,103.8494'),
+review_count,address) VALUES('v00','Holiday Inn','Hoiday Inn','Holiday Inn',0.00, 0, 0, '1.2975,103.8494'),
 ('v02','Gardens by the Bay','Gardens by the Bay','Gardens by the Bay',0.00, 0, 0, '1.2816,103.8636'),
 ('v03','Sentosa','Sentosa','Sentosa',0.00, 0, 0, '1.2494,103.8303'),
 ('v04','Tanjong Beach Walk Sentosa','Tanjong Beach Walk Sentosa','Tanjong Beach Walk Sentosa',0.00, 0, 0, '1.2543,103.8238'),

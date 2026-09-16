@@ -41,8 +41,6 @@
                   <td class="total-amount" data-total-amount="{{ values['total_amount'] }}">
                     ${{values["total_amount"]}}
                   </td>
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-
                   <td>
                     <!-- check the order status to disable it -->
                     {% if values['order_status']!= "Delivered" %}
@@ -50,8 +48,7 @@
                     <button
                       class="btn-refund btn btn-outline-danger"
                       id="{{values['order_id']}}"
-                      data-totalamount="{{values['total_amount']}}"
-                      onClick="reply_click(this)"
+                       onClick="reply_click(this); return false;"
                     >
                       Cancel
                     </button>
@@ -79,25 +76,17 @@
 </main>
 
 <script>
+  const refundUrl = {{ url_for('create_refund')|tojson }};
+  const csrfToken = {{ csrf_token()|tojson }};
+
   function reply_click(clicked_btn) {
-    chargeId = clicked_btn.id;
-    var totalAmountElement = clicked_btn.getAttribute("data-totalamount");
-    console.log("Charge ID: " + chargeId);
-    console.log("Total Amount: " + totalAmountElement);
+    clicked_btn.disabled = true;
+    var orderId = clicked_btn.id;
 
-    var refundBtn = document.getElementById(chargeId);
-    console.log("Refund Button: " + refundBtn);
-
-    refundBtn.addEventListener("click", async (event) => {
-      event.preventDefault();
-      try {
-        const response = await axios.post("http://localhost:5700/api/v1/refund", {
-          chargeId,
-          totalAmountElement,
-        });
-      } catch (error) {
-        console.log(error);
-      }
+    axios.post(refundUrl, {order_id: orderId}, {
+      headers: {"X-CSRFToken": csrfToken},
+    }).catch(() => {
+      clicked_btn.disabled = false;
     });
   }
 </script>
