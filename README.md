@@ -1,6 +1,6 @@
 # Party Planning Market
 
-This was a 2023/24 team project. We built an event-booking platform where users can browse party items and venues, manage a cart, place orders, view order status, request refunds, and submit reviews.
+Party Planning Market is event-booking platform where users can browse party items and venues, manage a cart, place orders, view order status, request refunds, and submit reviews.
 
 The platform uses Flask domain services, workflow services, RabbitMQ, Stripe, SendGrid, MySQL, and Docker Compose. This repository is a maintained public copy; the current branch adds versioned APIs, environment-based configuration, validation, focused tests, and safer payment and notification handling while keeping the project’s overall scope intact.
 
@@ -61,55 +61,4 @@ python app.py
 
 When running the web application outside Docker, set `USER_DATABASE_URL` to the host-accessible users schema URL from `.env`. The web application is intended to be the browser-facing entry point; the other services are local development services and should not be exposed directly to the internet.
 
-## API Overview
-
-All backend service paths begin with `/api/v1`.
-
-The browser-facing web application provides:
-
-- `POST /api/v1/checkout` - submit a payment token and delivery details for the current user’s cart
-- `POST /api/v1/refunds` - request a refund for an order owned by the current user
-
-The internal service endpoints include:
-
-- `GET /api/v1/catalogue` and `GET /api/v1/catalogue/<item_id>` - catalogue data
-- `PATCH /api/v1/catalogue/<item_id>/rating` - catalogue rating update
-- `GET /api/v1/venues` and `GET /api/v1/venues/<venue_id>` - venue data
-- `PATCH /api/v1/venues/<venue_id>/rating` - venue rating update
-- `GET /api/v1/carts/<user_id>` - retrieve a cart
-- `POST /api/v1/carts/<user_id>/products/<product_id>` - add a cart product
-- `PATCH /api/v1/carts/<user_id>/items/<item_id>` - set item quantity
-- `DELETE /api/v1/carts/<user_id>/products/<product_id>` - remove a cart product
-- `DELETE /api/v1/carts/<user_id>` - clear a cart
-- `GET /api/v1/orders?user_id=<user_id>` and `GET /api/v1/orders/<order_id>` - order data
-- `POST /api/v1/orders` - create an order through the order workflow
-- `PATCH /api/v1/orders/<order_id>` - update order status
-- `GET /api/v1/reviews?product_id=<product_id>` or `GET /api/v1/reviews?user_id=<user_id>` - review data
-- `POST /api/v1/reviews` and `PATCH /api/v1/reviews/<user_id>/<product_id>` - create or edit reviews
-- `POST /api/v1/payments` - create a Stripe payment
-- `POST /api/v1/refunds` - process a Stripe refund through the payment service
-
-Money is stored in MySQL as `DECIMAL(10,2)` and sent to Stripe as integer cents. API responses represent monetary values as two-decimal strings to avoid floating-point ambiguity.
-
-## Testing
-
-The tests use in-memory SQLite fixtures only to isolate service behavior. Production and Compose configuration require MySQL URLs.
-
-```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
-python -m compileall -q main microservices
-docker compose config --quiet
-```
-
-The notification service has its own dependency-free unit tests:
-
-```bash
-cd microservices/simple/emailNode
-npm install
-npm test
-```
-
-GitHub Actions runs the Python tests, notification tests, syntax checks, patch-format checks, and Compose configuration validation on pushes and pull requests.
-
-Stripe, RabbitMQ, SendGrid, and MySQL integration tests require the corresponding local services or test credentials. The unit tests mock external payment, messaging, and HTTP boundaries where appropriate.
+local services or test credentials. The unit tests mock external payment, messaging, and HTTP boundaries where appropriate.
