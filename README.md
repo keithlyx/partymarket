@@ -12,7 +12,7 @@ The platform uses Flask domain services, workflow services, RabbitMQ, Stripe, Se
 ### Scenarios
 Scenario 1: submit an order
 ![Submit order workflow](resources/SubmitOrder.png)
-Scenario 2: Write a Review 
+Scenario 2: View Order 
 ![Review workflow](resources/Review1.png)
 Scenario 2: Cancel an order
 ![Cancellation workflow](resources/Cancellation.png)
