@@ -83,11 +83,15 @@ def order_details(order_id):
         flash("Order could not be found.", "danger")
         return redirect(url_for('order_logs'))
 
-    order["total_amount"] = as_money(order["total_amount"])
-    for item in order["order_items"]:
-        item["item_price"] = as_money(item["item_price"])
-    if "venue" in order:
-        order["venue"]["venue_price"] = as_money(order["venue"]["venue_price"])
+    try:
+        order["total_amount"] = as_money(order["total_amount"])
+        for item in order["order_items"]:
+            item["item_price"] = as_money(item["item_price"])
+        if "venue" in order:
+            order["venue"]["venue_price"] = as_money(order["venue"]["venue_price"])
+    except (KeyError, TypeError, ValueError):
+        flash("Order data could not be displayed.", "danger")
+        return redirect(url_for('order_logs'))
 
     reviews_by_product = _reviews_by_product(review_data)
     for item in order["order_items"]:
