@@ -48,6 +48,7 @@
             <p class="description text-muted">{{catalogue_data.item_description}}</p>
           </div>
           <div class="buttons">
+            {% if current_user.is_authenticated %}
             <form method="post" action="{{url_for('add_to_cart', prod_id=catalogue_data.item_id)}}">
               <div class="d-flex flex-row">
                 <div class="quantity">
@@ -62,6 +63,9 @@
                 </div>
               </div>
             </form>
+            {% else %}
+            <a class="btn btn-outline-warning" href="{{url_for('login')}}">Log in to add to cart</a>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -74,6 +78,13 @@
     <div class="container">
       <div class="d-flex flex-row justify-content-between">
         <h3 class="review-title">Reviews</h3>
+        {% if current_user.is_authenticated %}
+        <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#exampleModal">
+          Add Review
+        </button>
+        {% else %}
+        <a class="btn btn-outline-dark" href="{{url_for('login')}}">Log in to write a review</a>
+        {% endif %}
         <!-- <button class="btn btn-outline-dark">Add Review</button> -->
         <!-- Button trigger modal -->
         <!-- <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#exampleModal">

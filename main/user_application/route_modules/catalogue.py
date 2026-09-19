@@ -1,5 +1,4 @@
 from flask import render_template
-from flask_login import login_required
 
 from user_application import app
 from user_application.invokes import invoke_http
@@ -34,7 +33,6 @@ def home():
 
 
 @app.route('/catalogue/<catalogue_id>', methods=['GET'])
-@login_required
 def catalogue_detail(catalogue_id):
     catalogue_data = invoke_http(
         CATALOGUE_URL + "/api/v1/catalogue/" + catalogue_id,
@@ -49,7 +47,6 @@ def catalogue_detail(catalogue_id):
 
 
 @app.route('/venue/<venue_id>', methods=['GET'])
-@login_required
 def venue_detail(venue_id):
     venue_data = invoke_http(VENUE_URL + "/api/v1/venues/" + venue_id, method='GET')
     return render_template(
