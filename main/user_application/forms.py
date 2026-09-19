@@ -5,6 +5,10 @@ from user_application.models import Users
 from flask_login import current_user
 
 
+def normalize_username(value):
+    return value.strip().lower()
+
+
 class RegistrationForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20), regexp(r'^[\w.@+-]+$',
                                                                                                  message="Field must not have spaces and special characters.")])
@@ -16,7 +20,7 @@ class RegistrationForm(FlaskForm):
     submit = SubmitField('Sign Up')
 
     def validate_username(self, username):
-        user = Users.query.filter_by(name=username.data).first()
+        user = Users.query.filter_by(name=normalize_username(username.data)).first()
 
         if user:
             raise ValidationError(
