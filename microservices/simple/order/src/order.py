@@ -57,6 +57,8 @@ def _validate_order(data: Any) -> Optional[str]:
         return "total_amount must be a non-negative number."
     if not isinstance(data["order_items"], list):
         return "order_items must be a list."
+    if not data["order_items"] and not data.get("venue"):
+        return "An order must contain an item or venue."
     for item in data["order_items"]:
         if not isinstance(item, dict) or any(field not in item for field in ("item_id", "item_quantity", "item_price")):
             return "Each order item must include item_id, item_quantity, and item_price."
@@ -70,6 +72,22 @@ def _validate_order(data: Any) -> Optional[str]:
             item_price = Decimal("-1")
         if isinstance(item["item_price"], bool) or not item_price.is_finite() or item_price < 0 or item_price.as_tuple().exponent < -2:
             return "Each item_price must be a non-negative number."
+    if "venue" in data:
+        venue = data["venue"]
+        if not isinstance(venue, dict):
+            return "venue must be an object."
+        for field in ("venue_id", "venue_datetime"):
+            if not isinstance(venue.get(field), str) or not venue[field].strip():
+                return f"venue.{field} must be a non-empty string."
+        try:
+            venue_price = Decimal(str(venue.get("venue_price")))
+        except (InvalidOperation, ValueError):
+            venue_price = Decimal("-1")
+        if (isinstance(venue.get("venue_price"), bool)
+                or not venue_price.is_finite()
+                or venue_price < 0
+                or venue_price.as_tuple().exponent < -2):
+            return "venue.venue_price must be a non-negative number."
     return None
 
 
