@@ -182,3 +182,44 @@ def test_refund_reports_order_update_failure_after_payment_refund(monkeypatch):
     )
 
     assert response.status_code == 503
+
+
+def test_refund_retry_reuses_provider_key_after_order_update_failure(monkeypatch):
+    process_refund = load_module(
+        "process_refund_service_retry",
+        "microservices/complex/process_refund/src/process_refund.py",
+    )
+    payment_keys = []
+    update_statuses = iter((503, 200))
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        if method == "GET":
+            return {
+                "code": 200,
+                "order": {
+                    "order_id": "ch_123",
+                    "user_id": "user@example.com",
+                    "total_amount": "12.34",
+                    "order_status": "Accepted",
+                },
+            }
+        if "refunds" in url:
+            payment_keys.append(json["idempotency_key"])
+            return {"code": 200, "refund_id": "re_123"}
+        return {"code": next(update_statuses), "data": {"order_id": "ch_123"}}
+
+    monkeypatch.setattr(process_refund, "invoke_http", fake_invoke)
+    client = process_refund.app.test_client()
+
+    first_response = client.post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+    retry_response = client.post(
+        "/api/v1/refunds",
+        json={"order_id": "ch_123", "user_id": "user@example.com"},
+    )
+
+    assert first_response.status_code == 503
+    assert retry_response.status_code == 200
+    assert payment_keys == ["refund:ch_123", "refund:ch_123"]
