@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: '20'
       - name: Install notification dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Run notification tests
         run: npm test
       - name: Check JavaScript syntax
