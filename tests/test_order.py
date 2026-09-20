@@ -1,6 +1,20 @@
 from .conftest import load_module
 
 
+def _valid_order(**overrides):
+    order = {
+        "order_id": "o01",
+        "user_id": "user@example.com",
+        "total_amount": "12.30",
+        "order_datetime": "2026-09-15T12:00:00",
+        "delivery_address": "Address",
+        "delivery_datetime": "2026-09-16",
+        "order_items": [{"item_id": "i01", "item_quantity": 1, "item_price": "12.30"}],
+    }
+    order.update(overrides)
+    return order
+
+
 def test_missing_order_returns_not_found(monkeypatch):
     order = load_module(
         "order_service_missing",
@@ -51,3 +65,40 @@ def test_order_creation_serializes_decimal_money(monkeypatch):
     )
     assert response.status_code == 201
     assert response.get_json()["data"]["total_amount"] == "12.30"
+
+
+def test_order_creation_rejects_malformed_venue_payload(monkeypatch):
+    order = load_module(
+        "order_service_malformed_venue",
+        "microservices/simple/order/src/order.py",
+        monkeypatch,
+        "ORDER_DATABASE_URL",
+    )
+    with order.app.app_context():
+        order.db.create_all()
+
+    response = order.app.test_client().post(
+        "/api/v1/orders",
+        json=_valid_order(venue={"venue_id": "v01"}),
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["code"] == 400
+
+
+def test_order_creation_rejects_empty_order(monkeypatch):
+    order = load_module(
+        "order_service_empty_order",
+        "microservices/simple/order/src/order.py",
+        monkeypatch,
+        "ORDER_DATABASE_URL",
+    )
+    with order.app.app_context():
+        order.db.create_all()
+
+    response = order.app.test_client().post(
+        "/api/v1/orders",
+        json=_valid_order(order_items=[]),
+    )
+
+    assert response.status_code == 400

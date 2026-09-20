@@ -12,3 +12,4 @@ venv/
 .env
 .env.*
 !.env.example
+references/

@@ -15,6 +15,9 @@ REFUND_URL = app.config['REFUND_SERVICE_URL']
 
 def as_money(value):
     try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return Decimal("0.00")
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError("Invalid monetary value.") from error
+    if not amount.is_finite():
+        raise ValueError("Invalid monetary value.")
+    return amount

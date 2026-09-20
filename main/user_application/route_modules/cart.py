@@ -30,7 +30,11 @@ def cart():
             CATALOGUE_URL + '/api/v1/catalogue/' + item_id,
             method='GET',
         )
-        item_price = as_money(specific_item['data']['item_price'])
+        try:
+            item_price = as_money(specific_item['data']['item_price'])
+        except (KeyError, TypeError, ValueError):
+            flash('Cart data could not be loaded.', 'danger')
+            return redirect(url_for('home'))
         total_amount += quantity * item_price
         catalogue_items.append((
             specific_item['data']['item_img'],
@@ -46,7 +50,11 @@ def cart():
             VENUE_URL + '/api/v1/venues/' + venue_id,
             method='GET',
         )
-        venue_price = as_money(specific_venue['data']['venue_price'])
+        try:
+            venue_price = as_money(specific_venue['data']['venue_price'])
+        except (KeyError, TypeError, ValueError):
+            flash('Cart data could not be loaded.', 'danger')
+            return redirect(url_for('home'))
         total_amount += venue_price
         venue_items.append((
             specific_venue['data']['venue_img'],

@@ -144,3 +144,67 @@ def test_process_order_rejects_incomplete_payment_response(monkeypatch):
     )
 
     assert response.status_code == 502
+
+
+def test_process_order_reports_cart_clear_failure_after_order_creation(monkeypatch):
+    process_order = load_module(
+        "process_order_service_cart_clear_failure",
+        "microservices/complex/process_order/src/process_order.py",
+    )
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        if method == "GET" and "/carts/" in url:
+            return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 1}], "cart_venues": []}}
+        if method == "GET" and "/catalogue/" in url:
+            return {"code": 200, "data": {"item_price": "12.34"}}
+        if "payments" in url:
+            return {"code": 200, "order_id": "ch_123", "receipt_url": "receipt"}
+        if method == "DELETE":
+            return {"code": 503, "message": "cart unavailable"}
+        return {"code": 201}
+
+    monkeypatch.setattr(process_order, "invoke_http", fake_invoke)
+    monkeypatch.setattr(process_order, "send_email", lambda order: None)
+
+    response = process_order.app.test_client().post(
+        "/api/v1/orders",
+        json=valid_order(),
+    )
+
+    assert response.status_code == 502
+    assert response.get_json()["message"] == "Order was created but the cart could not be cleared."
+
+
+def test_process_order_reuses_checkout_idempotency_key_on_retry(monkeypatch):
+    process_order = load_module(
+        "process_order_service_idempotent_retry",
+        "microservices/complex/process_order/src/process_order.py",
+    )
+    payment_keys = []
+    order_attempts = 0
+
+    def fake_invoke(url, method="GET", json=None, **kwargs):
+        nonlocal order_attempts
+        if method == "GET" and "/carts/" in url:
+            return {"code": 200, "data": {"cart_items": [{"item_id": "i01", "quantity": 1}], "cart_venues": []}}
+        if method == "GET" and "/catalogue/" in url:
+            return {"code": 200, "data": {"item_price": "12.34"}}
+        if "payments" in url:
+            payment_keys.append(json["idempotency_key"])
+            return {"code": 200, "order_id": "ch_123", "receipt_url": "receipt"}
+        if method == "POST" and "/orders" in url:
+            order_attempts += 1
+            return {"code": 201} if order_attempts == 1 else {"code": 409}
+        return {"code": 200}
+
+    monkeypatch.setattr(process_order, "invoke_http", fake_invoke)
+    monkeypatch.setattr(process_order, "send_email", lambda order: None)
+    client = process_order.app.test_client()
+
+    first_response = client.post("/api/v1/orders", json=valid_order())
+    retry_response = client.post("/api/v1/orders", json=valid_order())
+
+    assert first_response.status_code == 201
+    assert retry_response.status_code == 200
+    assert payment_keys == ["checkout-123", "checkout-123"]
+    assert order_attempts == 2
